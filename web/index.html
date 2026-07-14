@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>할일 정리</title>
+<style>
+  :root, :root[data-theme="light"] {
+    --bg: #ffffff;
+    --fg: #37352f;
+    --fg-soft: #787774;
+    --fg-faint: #9b9a97;
+    --line: #ebebea;
+    --hover: #f6f6f5;
+    --hover2: #e8e7e4;
+    --accent: #2383e2;
+    --input-bg: #ffffff;
+    --scrollbar: #d3d1cb;
+    --red: #e03e3e;
+    --red-bg: #fdebec;
+    --blue: #2383e2;
+    --blue-bg: #e7f3f8;
+    --green: #0f7b6c;
+    --green-bg: #e9f3f1;
+    --gray-bg: #f1f1ef;
+    --orange: #d9730d;
+    --orange-bg: #faebdd;
+    --faint2: #c3c1ba;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #191919;
+    --fg: #e6e6e4;
+    --fg-soft: #a3a29e;
+    --fg-faint: #7c7b77;
+    --line: #2e2e2d;
+    --hover: #262625;
+    --hover2: #333231;
+    --accent: #4da3f5;
+    --input-bg: #232322;
+    --scrollbar: #40403e;
+    --red: #ff6b68;
+    --red-bg: #3d2523;
+    --blue: #4da3f5;
+    --blue-bg: #1f3646;
+    --green: #4dbba3;
+    --green-bg: #1c3833;
+    --gray-bg: #2b2b2a;
+    --orange: #e3a75c;
+    --orange-bg: #3c3122;
+    --faint2: #4d4c48;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { height: 100%; overflow-y: scroll; }
+  body {
+    min-height: 100%;
+    font-family: "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg); color: var(--fg); font-size: 14px;
+    transition: background .15s, color .15s;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ── 커스텀 타이틀바 (프레임 없는 창) ─────────── */
+  .titlebar {
+    position: sticky; top: 0; z-index: 30; height: 30px;
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 6px 0 12px; background: var(--hover);
+    border-bottom: 1px solid var(--line);
+    -webkit-user-select: none; user-select: none;
+  }
+  .tb-title {
+    font-size: 12px; color: var(--fg-soft); flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tb-btn {
+    flex: none; width: 28px; height: 22px; border: none; background: none;
+    color: var(--fg-soft); font-size: 13px; border-radius: 4px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+  .tb-btn:hover { background: var(--hover2); color: var(--fg); }
+  .tb-btn.tb-close:hover { background: var(--red); color: #fff; }
+  .tb-btn.active { color: var(--accent); }
+
+  #resizeGrip {
+    position: fixed; right: 0; bottom: 0; width: 16px; height: 16px;
+    cursor: nwse-resize; z-index: 40;
+  }
+  #resizeGrip::after {
+    content: ""; position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px;
+    border-right: 2px solid var(--faint2); border-bottom: 2px solid var(--faint2);
+  }
+
+  /* ── 상단 바 ─────────────────────────────── */
+  header {
+    position: sticky; top: 30px; z-index: 20; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 28px 10px;
+  }
+  .hrow { display: flex; align-items: center; gap: 10px; }
+  h1 { font-size: 20px; font-weight: 700; margin-right: 4px; white-space: nowrap; }
+  #rootPath {
+    font-size: 12px; color: var(--fg-faint); cursor: pointer;
+    padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+  }
+  #rootPath:hover { background: var(--hover); color: var(--fg-soft); }
+  .spacer { flex: 1; }
+  #search {
+    width: 220px; padding: 5px 10px; border: 1px solid var(--line);
+    border-radius: 6px; font-size: 13px; outline: none; background: var(--hover);
+  }
+  #search:focus { border-color: var(--accent); background: var(--bg); }
+  button.tool {
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg-soft);
+    border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer;
+    white-space: nowrap;
+  }
+  button.tool:hover { background: var(--hover); color: var(--fg); }
+  #btnTheme { padding: 5px 9px; font-size: 14px; line-height: 1; }
+  #sortSelect {
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg-soft);
+    border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer;
+    outline: none; white-space: nowrap;
+  }
+  #sortSelect:hover { background: var(--hover); color: var(--fg); }
+  #sortSelect:focus { border-color: var(--accent); }
+  #summary { font-size: 12px; color: var(--fg-faint); margin-top: 7px; }
+
+  /* ── 그룹 ─────────────────────────────── */
+  main { padding: 10px 28px 80px; max-width: 1200px; margin: 0 auto; }
+  .group { margin-top: 20px; border-radius: 8px; }
+  .group.drag-over-group { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ghead {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 4px; border-radius: 6px; user-select: none;
+  }
+  .ghead:hover { background: var(--hover); }
+  .ghandle, .thandle {
+    cursor: grab; color: transparent; font-size: 14px; line-height: 1;
+    padding: 2px 3px; border-radius: 4px; flex: none;
+  }
+  .ghead:hover .ghandle, .task:hover .thandle { color: var(--faint2); }
+  .ghandle:hover, .thandle:hover { background: var(--hover2); color: var(--fg-soft) !important; }
+  .thandle.disabled { cursor: default; }
+  .thandle.disabled:hover { background: none; color: var(--faint2) !important; }
+  .chev {
+    cursor: pointer; color: var(--fg-faint); width: 20px; height: 20px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; font-size: 11px; transition: transform .12s;
+  }
+  .chev:hover { background: var(--hover2); }
+  .chev.closed { transform: rotate(-90deg); }
+  .gname {
+    font-weight: 700; font-size: 15px; padding: 2px 6px; border-radius: 4px;
+    cursor: text; min-width: 30px;
+  }
+  .gname:hover { background: var(--hover2); }
+  .gname input {
+    font: inherit; font-weight: 700; border: none; outline: none;
+    background: var(--input-bg); border-radius: 4px; padding: 0 2px;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .gcount { font-size: 12px; color: var(--fg-faint); font-weight: 400; }
+  .gdel {
+    margin-left: 4px; border: none; background: none; color: transparent;
+    cursor: pointer; font-size: 13px; border-radius: 4px; padding: 2px 5px;
+  }
+  .ghead:hover .gdel { color: var(--fg-faint); }
+  .gdel:hover { background: var(--red-bg); color: var(--red) !important; }
+  .gbody { margin-top: 2px; min-height: 4px; }
+  .gbody.collapsed { display: none; }
+  .empty-hint { font-size: 12px; color: var(--faint2); padding: 6px 34px; }
+
+  /* ── 업무 행 ─────────────────────────────── */
+  .task {
+    border-radius: 6px; margin: 1px 0;
+  }
+  .trow {
+    display: flex; align-items: center; gap: 7px;
+    padding: 5px 6px; border-radius: 6px; position: relative;
+  }
+  .trow:hover { background: var(--hover); }
+  .task.dragging { opacity: .35; }
+  .task.drop-above > .trow::before,
+  .task.drop-below > .trow::after {
+    content: ""; position: absolute; left: 6px; right: 6px; height: 2px;
+    background: var(--accent); border-radius: 1px;
+  }
+  .task.drop-above > .trow::before { top: -1px; }
+  .task.drop-below > .trow::after { bottom: -1px; }
+
+  .tname {
+    font-size: 14px; cursor: pointer; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 44%;
+    padding: 1px 2px; border-radius: 3px;
+  }
+  .tname:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  .task.done .tname { color: var(--fg-faint); text-decoration: line-through; }
+  .task.done .tname:hover { color: var(--accent); }
+
+  .status {
+    flex: none; font-size: 11.5px; padding: 1px 8px; border-radius: 10px;
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .status.s0 { background: var(--gray-bg); color: var(--fg-soft); }
+  .status.s1 { background: var(--blue-bg); color: var(--blue); }
+  .status.s2 { background: var(--red-bg); color: var(--red); }
+  .status.s3 { background: var(--green-bg); color: var(--green); }
+
+  .dl {
+    flex: none; font-size: 11.5px; color: var(--fg-faint); cursor: pointer;
+    padding: 1px 7px; border-radius: 10px; white-space: nowrap;
+  }
+  .dl:hover { background: var(--hover2); }
+  .dl.set { background: var(--gray-bg); color: var(--fg-soft); }
+  .dl.soon { background: var(--orange-bg); color: var(--orange); }
+  .dl.over { background: var(--red-bg); color: var(--red); font-weight: 700; }
+  .dl input[type=date] {
+    font: inherit; border: none; outline: none; background: transparent;
+    color: inherit; width: 118px; padding: 0;
+  }
+
+  .memo {
+    flex: 1 1 auto; min-width: 40px; font-size: 12.5px; color: var(--fg-soft);
+    cursor: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 1px 5px; border-radius: 4px;
+  }
+  .memo.empty { color: transparent; }
+  .trow:hover .memo.empty { color: var(--faint2); }
+  .memo:hover { background: var(--hover2); }
+  .memo input {
+    width: 100%; font: inherit; border: none; outline: none;
+    background: var(--input-bg); border-radius: 4px; padding: 0 3px;
+    box-shadow: 0 0 0 2px var(--accent); color: var(--fg);
+  }
+
+  .tinfo { flex: none; font-size: 11px; color: var(--faint2); white-space: nowrap; }
+
+  /* ── 파일 트리 ─────────────────────────────── */
+  .tree { padding: 0 0 4px 52px; }
+  .node { font-size: 12.5px; }
+  .nrow {
+    display: flex; align-items: center; gap: 5px; padding: 2px 6px;
+    border-radius: 4px; cursor: pointer; color: var(--fg-soft);
+  }
+  .nrow:hover { background: var(--hover); color: var(--fg); }
+  .nicon { flex: none; font-size: 12px; }
+  .nname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nkids { padding-left: 20px; }
+
+  /* ── 토스트 ─────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #37352f; color: #fff; padding: 9px 18px; border-radius: 8px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .25s;
+    max-width: 80%; z-index: 50;
+  }
+  #toast.show { opacity: .95; }
+
+  #loading {
+    padding: 60px; text-align: center; color: var(--fg-faint); font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="titlebar pywebview-drag-region">
+  <span class="tb-title">📋 할일 정리</span>
+  <button class="tb-btn" id="tbPin" title="항상 위에 표시">📌</button>
+  <button class="tb-btn" id="tbMin" title="최소화">─</button>
+  <button class="tb-btn tb-close" id="tbClose" title="닫기 (트레이로 숨김)">✕</button>
+</div>
+<div id="resizeGrip" title="끌어서 창 크기 조절"></div>
+<header>
+  <div class="hrow">
+    <h1>📋 할일 정리</h1>
+    <span id="rootPath" title="클릭하면 할일 폴더 경로를 변경할 수 있어요"></span>
+    <div class="spacer"></div>
+    <input id="search" type="text" placeholder="업무 검색…">
+    <select id="sortSelect" title="정렬 방식">
+      <option value="custom">사용자 지정 순서</option>
+      <option value="name">이름순</option>
+      <option value="deadline">마감일순</option>
+      <option value="status">상태순</option>
+      <option value="recent">최근 수정순</option>
+      <option value="files">파일 많은순</option>
+    </select>
+    <button class="tool" id="btnAddGroup">＋ 그룹 추가</button>
+    <button class="tool" id="btnRefresh">⟳ 새로고침</button>
+    <button class="tool" id="btnTheme" title="테마 전환"></button>
+  </div>
+  <div id="summary"></div>
+</header>
+<main id="main"><div id="loading">폴더를 읽는 중…</div></main>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const STATUS = [
+  { key: "대기",   cls: "s0" },
+  { key: "진행중", cls: "s1" },
+  { key: "급함",   cls: "s2" },
+  { key: "완료",   cls: "s3" },
+];
+
+let state = null;   // { root, groups:[{id,name,collapsed,tasks:[]}], meta:{} }
+let tasks = {};     // id -> {name, category, mtime, fileCount}
+let expanded = {};  // taskId -> true (파일 트리 펼침)
+let filter = "";
+let sortMode = localStorage.getItem("sortMode") || "custom";
+
+const $main = document.getElementById("main");
+const api = () => window.pywebview.api;
+
+/* ── 테마 (라이트/다크/시스템) ─────────────── */
+const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
+function applyTheme() {
+  const pref = localStorage.getItem("themePref") || "system";
+  const resolved = pref === "system"
+    ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    : pref;
+  document.documentElement.setAttribute("data-theme", resolved);
+  const btn = document.getElementById("btnTheme");
+  btn.textContent = THEME_ICON[pref];
+  btn.title = "테마: " + { system: "시스템 설정 따름", light: "라이트", dark: "다크" }[pref]
+    + " (클릭해서 전환)";
+}
+document.getElementById("btnTheme").onclick = () => {
+  const order = ["system", "light", "dark"];
+  const cur = localStorage.getItem("themePref") || "system";
+  const next = order[(order.indexOf(cur) + 1) % order.length];
+  localStorage.setItem("themePref", next);
+  applyTheme();
+};
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if ((localStorage.getItem("themePref") || "system") === "system") applyTheme();
+});
+applyTheme();
+
+/* ── 정렬 ─────────────────────────────────── */
+const SORTERS = {
+  name: (a, b) => tasks[a].name.localeCompare(tasks[b].name, "ko"),
+  deadline: (a, b) => {
+    const da = (state.meta[a] || {}).deadline, db = (state.meta[b] || {}).deadline;
+    if (!da && !db) return tasks[a].name.localeCompare(tasks[b].name, "ko");
+    if (!da) return 1;
+    if (!db) return -1;
+    return da < db ? -1 : da > db ? 1 : 0;
+  },
+  status: (a, b) => {
+    const order = { "급함": 0, "진행중": 1, "대기": 2, "완료": 3 };
+    const sa = order[(state.meta[a] || {}).status || "대기"];
+    const sb = order[(state.meta[b] || {}).status || "대기"];
+    return sa - sb || tasks[a].name.localeCompare(tasks[b].name, "ko");
+  },
+  recent: (a, b) => tasks[b].mtime.localeCompare(tasks[a].mtime),
+  files: (a, b) => tasks[b].fileCount - tasks[a].fileCount,
+};
+function sortTasks(ids) {
+  if (sortMode === "custom" || !SORTERS[sortMode]) return ids;
+  return ids.slice().sort(SORTERS[sortMode]);
+}
+const $sortSelect = document.getElementById("sortSelect");
+$sortSelect.value = sortMode;
+$sortSelect.onchange = () => {
+  sortMode = $sortSelect.value;
+  localStorage.setItem("sortMode", sortMode);
+  render();
+};
+
+/* ── 데이터 로드/저장 ─────────────────────── */
+async function load(showRemoved) {
+  const res = await api().get_state();
+  state = res.data;
+  tasks = res.tasks;
+  render();
+  if (!res.rootExists) {
+    toast("⚠ 할일 폴더를 찾을 수 없어요: " + state.root);
+  } else if (showRemoved && res.removed.length) {
+    toast("정리됨(폴더 이동): " + res.removed.join(", "));
+  }
+}
+function save() {
+  api().save_state(state);
+}
+function meta(id) {
+  if (!state.meta[id]) state.meta[id] = { memo: "", deadline: "", status: "대기" };
+  return state.meta[id];
+}
+
+/* ── 렌더링 ─────────────────────────────── */
+function render() {
+  document.getElementById("rootPath").textContent = state.root;
+  const total = Object.keys(tasks).length;
+  const done = Object.values(state.meta).filter(m => m.status === "완료").length;
+  const urgent = Object.values(state.meta).filter(m => m.status === "급함").length;
+  document.getElementById("summary").textContent =
+    `업무 ${total}건 · 완료 ${done}건` + (urgent ? ` · 🔥 급함 ${urgent}건` : "");
+
+  $main.innerHTML = "";
+  state.groups.forEach(g => $main.appendChild(renderGroup(g)));
+}
+
+function renderGroup(g) {
+  const el = document.createElement("section");
+  el.className = "group";
+  el.dataset.gid = g.id;
+
+  const head = document.createElement("div");
+  head.className = "ghead";
+
+  const handle = document.createElement("span");
+  handle.className = "ghandle";
+  handle.textContent = "⠿";
+  handle.title = "끌어서 그룹 순서 변경";
+  handle.draggable = true;
+  handle.addEventListener("dragstart", e => startGroupDrag(e, g.id, el));
+  handle.addEventListener("dragend", endDrag);
+
+  const chev = document.createElement("span");
+  chev.className = "chev" + (g.collapsed ? " closed" : "");
+  chev.textContent = "▾";
+  chev.onclick = () => { g.collapsed = !g.collapsed; save(); render(); };
+
+  const name = document.createElement("span");
+  name.className = "gname";
+  name.textContent = g.name;
+  name.title = "클릭하면 그룹 이름을 수정할 수 있어요";
+  name.onclick = () => editGroupName(g, name);
+
+  const visible = sortTasks(g.tasks.filter(matchFilter));
+  const count = document.createElement("span");
+  count.className = "gcount";
+  count.textContent = visible.length;
+
+  const del = document.createElement("button");
+  del.className = "gdel";
+  del.textContent = "✕";
+  del.title = "그룹 삭제 (업무는 다른 그룹으로 이동)";
+  del.onclick = () => deleteGroup(g);
+
+  head.append(handle, chev, name, count, del);
+
+  const body = document.createElement("div");
+  body.className = "gbody" + (g.collapsed ? " collapsed" : "");
+  body.dataset.gid = g.id;
+
+  if (!visible.length) {
+    const hint = document.createElement("div");
+    hint.className = "empty-hint";
+    hint.textContent = filter ? "검색 결과 없음" : "업무를 여기로 끌어다 놓을 수 있어요";
+    body.appendChild(hint);
+  } else {
+    visible.forEach(tid => body.appendChild(renderTask(tid, g)));
+  }
+  body.addEventListener("dragover", e => taskDragOverBody(e, g));
+  body.addEventListener("drop", e => taskDropOnBody(e, g));
+
+  el.append(head, body);
+  el.addEventListener("dragover", e => groupDragOver(e, g));
+  el.addEventListener("drop", e => groupDrop(e, g));
+  return el;
+}
+
+function matchFilter(tid) {
+  if (!filter) return true;
+  const t = tasks[tid];
+  const m = state.meta[tid] || {};
+  return (t.name + " " + (m.memo || "")).toLowerCase().includes(filter);
+}
+
+function renderTask(tid, g) {
+  const t = tasks[tid];
+  const m = meta(tid);
+  const el = document.createElement("div");
+  el.className = "task" + (m.status === "완료" ? " done" : "");
+  el.dataset.tid = tid;
+
+  const row = document.createElement("div");
+  row.className = "trow";
+
+  const handle = document.createElement("span");
+  const sortLocked = sortMode !== "custom";
+  handle.className = "thandle" + (sortLocked ? " disabled" : "");
+  handle.textContent = "⠿";
+  handle.title = sortLocked
+    ? "정렬 중에는 순서를 끌 수 없어요 (사용자 지정 순서로 바꾸면 끌 수 있어요)"
+    : "끌어서 순서 변경 / 다른 그룹으로 이동";
+  handle.draggable = !sortLocked;
+  handle.addEventListener("dragstart", e => startTaskDrag(e, tid, g.id, el));
+  handle.addEventListener("dragend", endDrag);
+
+  const chev = document.createElement("span");
+  chev.className = "chev" + (expanded[tid] ? "" : " closed");
+  chev.textContent = "▾";
+  chev.title = "폴더 내용 펼치기";
+  chev.onclick = () => toggleTree(tid, el);
+
+  const st = STATUS.find(s => s.key === m.status) || STATUS[0];
+  const status = document.createElement("span");
+  status.className = "status " + st.cls;
+  status.textContent = st.key;
+  status.title = "클릭하면 상태가 바뀌어요 (대기→진행중→급함→완료)";
+  status.onclick = () => {
+    const i = STATUS.findIndex(s => s.key === m.status);
+    m.status = STATUS[(i + 1) % STATUS.length].key;
+    save(); render();
+  };
+
+  const name = document.createElement("span");
+  name.className = "tname";
+  name.textContent = "📁 " + t.name;
+  name.title = "클릭하면 탐색기로 폴더가 열려요\n" + tid;
+  name.onclick = () => api().open_path(tid);
+
+  const dl = renderDeadline(m);
+
+  const memo = document.createElement("span");
+  memo.className = "memo" + (m.memo ? "" : " empty");
+  memo.textContent = m.memo || "메모 추가…";
+  memo.onclick = () => editMemo(m, memo);
+
+  const info = document.createElement("span");
+  info.className = "tinfo";
+  info.textContent = `${t.fileCount}개 · ${t.mtime}`;
+  info.title = "파일 수 · 마지막 수정일";
+
+  row.append(handle, chev, status, name, dl, memo, info);
+  el.appendChild(row);
+
+  el.addEventListener("dragover", e => taskDragOver(e, tid, g));
+  el.addEventListener("drop", e => taskDrop(e, tid, g));
+
+  if (expanded[tid]) {
+    const tree = document.createElement("div");
+    tree.className = "tree";
+    el.appendChild(tree);
+    fillTree(tree, tid);
+  }
+  return el;
+}
+
+function renderDeadline(m) {
+  const dl = document.createElement("span");
+  dl.className = "dl";
+  if (!m.deadline) {
+    dl.textContent = "📅";
+    dl.title = "마감일 지정";
+  } else {
+    const d = new Date(m.deadline + "T00:00:00");
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const diff = Math.round((d - today) / 86400000);
+    let tag = diff === 0 ? "D-Day" : diff > 0 ? "D-" + diff : "D+" + (-diff);
+    dl.textContent = `📅 ${m.deadline.slice(5).replace("-", "/")} ${tag}`;
+    dl.classList.add("set");
+    if (m.status !== "완료") {
+      if (diff < 0) dl.classList.add("over");
+      else if (diff <= 3) dl.classList.add("soon");
+    }
+    dl.title = "클릭해서 마감일 변경 (지우려면 달력에서 지우기)";
+  }
+  dl.onclick = () => {
+    const inp = document.createElement("input");
+    inp.type = "date";
+    inp.value = m.deadline || "";
+    dl.textContent = "";
+    dl.appendChild(inp);
+    inp.focus();
+    try { inp.showPicker(); } catch (e) {}
+    const done = () => { m.deadline = inp.value || ""; save(); render(); };
+    inp.onchange = done;
+    inp.onblur = done;
+    dl.onclick = null;
+  };
+  return dl;
+}
+
+/* ── 인라인 편집 ─────────────────────────── */
+function editGroupName(g, span) {
+  const inp = document.createElement("input");
+  inp.value = g.name;
+  inp.size = Math.max(g.name.length, 4);
+  span.textContent = "";
+  span.appendChild(inp);
+  inp.focus(); inp.select();
+  const done = () => {
+    const v = inp.value.trim();
+    if (v) g.name = v;
+    save(); render();
+  };
+  inp.onblur = done;
+  inp.onkeydown = e => {
+    if (e.key === "Enter") inp.blur();
+    if (e.key === "Escape") { inp.onblur = null; render(); }
+  };
+}
+
+function editMemo(m, span) {
+  const inp = document.createElement("input");
+  inp.value = m.memo || "";
+  inp.placeholder = "메모…";
+  span.textContent = "";
+  span.classList.remove("empty");
+  span.appendChild(inp);
+  inp.focus();
+  const done = () => { m.memo = inp.value.trim(); save(); render(); };
+  inp.onblur = done;
+  inp.onkeydown = e => {
+    if (e.key === "Enter") inp.blur();
+    if (e.key === "Escape") { inp.onblur = null; render(); }
+  };
+}
+
+/* ── 그룹 추가/삭제 ───────────────────────── */
+document.getElementById("btnAddGroup").onclick = () => {
+  state.groups.push({ id: Math.random().toString(36).slice(2, 10),
+                      name: "새 그룹", collapsed: false, tasks: [] });
+  save(); render();
+  const spans = document.querySelectorAll(".gname");
+  const last = spans[spans.length - 1];
+  const g = state.groups[state.groups.length - 1];
+  if (last) editGroupName(g, last);
+};
+
+function deleteGroup(g) {
+  if (g.tasks.length) {
+    if (!confirm(`'${g.name}' 그룹을 삭제할까요?\n업무 ${g.tasks.length}건은 다른 그룹으로 옮겨져요. (폴더는 그대로 유지)`)) return;
+    let dest = state.groups.find(x => x !== g);
+    if (!dest) {
+      dest = { id: Math.random().toString(36).slice(2, 10), name: "미분류",
+               collapsed: false, tasks: [] };
+      state.groups.push(dest);
+    }
+    dest.tasks.push(...g.tasks);
+  }
+  state.groups = state.groups.filter(x => x !== g);
+  save(); render();
+}
+
+/* ── 드래그 & 드롭 ────────────────────────── */
+let drag = null; // {type:'task'|'group', tid, gid}
+
+/* 드래그 중 화면 가장자리 근처로 가면 자동 스크롤 */
+let dragPointerY = null;
+document.addEventListener("dragover", e => { dragPointerY = e.clientY; });
+(function autoScrollLoop() {
+  if (drag && dragPointerY !== null) {
+    const margin = 90;
+    const vh = window.innerHeight;
+    const scroller = document.scrollingElement || document.documentElement;
+    if (dragPointerY < margin) {
+      scroller.scrollTop -= Math.max(4, (margin - dragPointerY) / 3);
+    } else if (dragPointerY > vh - margin) {
+      scroller.scrollTop += Math.max(4, (dragPointerY - (vh - margin)) / 3);
+    }
+  }
+  requestAnimationFrame(autoScrollLoop);
+})();
+
+function startTaskDrag(e, tid, gid, el) {
+  drag = { type: "task", tid, gid };
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", tid);
+  e.dataTransfer.setDragImage(el, 10, 10);
+  requestAnimationFrame(() => el.classList.add("dragging"));
+}
+function startGroupDrag(e, gid, el) {
+  drag = { type: "group", gid };
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", gid);
+  e.dataTransfer.setDragImage(el, 10, 10);
+}
+function endDrag() {
+  drag = null;
+  dragPointerY = null;
+  clearMarks();
+}
+function clearMarks() {
+  document.querySelectorAll(".drop-above,.drop-below").forEach(x =>
+    x.classList.remove("drop-above", "drop-below"));
+  document.querySelectorAll(".drag-over-group").forEach(x =>
+    x.classList.remove("drag-over-group"));
+}
+
+function taskDragOver(e, tid, g) {
+  if (!drag || drag.type !== "task" || drag.tid === tid) return;
+  e.preventDefault(); e.stopPropagation();
+  e.dataTransfer.dropEffect = "move";
+  clearMarks();
+  const el = e.currentTarget;
+  const r = el.querySelector(".trow").getBoundingClientRect();
+  const below = e.clientY > r.top + r.height / 2;
+  el.classList.add(below ? "drop-below" : "drop-above");
+}
+function taskDrop(e, tid, g) {
+  if (!drag || drag.type !== "task" || drag.tid === tid) return;
+  e.preventDefault(); e.stopPropagation();
+  const el = e.currentTarget;
+  const r = el.querySelector(".trow").getBoundingClientRect();
+  const below = e.clientY > r.top + r.height / 2;
+  moveTask(drag.tid, g, g.tasks.indexOf(tid) + (below ? 1 : 0));
+}
+function taskDragOverBody(e, g) {
+  if (!drag || drag.type !== "task") return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+}
+function taskDropOnBody(e, g) {
+  if (!drag || drag.type !== "task") return;
+  e.preventDefault(); e.stopPropagation();
+  moveTask(drag.tid, g, g.tasks.length);
+}
+function moveTask(tid, destGroup, index) {
+  const src = state.groups.find(x => x.tasks.includes(tid));
+  if (!src) return;
+  const oldIdx = src.tasks.indexOf(tid);
+  src.tasks.splice(oldIdx, 1);
+  if (src === destGroup && oldIdx < index) index--;
+  index = Math.max(0, Math.min(index, destGroup.tasks.length));
+  destGroup.tasks.splice(index, 0, tid);
+  drag = null;
+  save(); render();
+}
+
+function groupDragOver(e, g) {
+  if (!drag || drag.type !== "group" || drag.gid === g.id) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  clearMarks();
+  e.currentTarget.classList.add("drag-over-group");
+}
+function groupDrop(e, g) {
+  if (!drag || drag.type !== "group" || drag.gid === g.id) return;
+  e.preventDefault();
+  const from = state.groups.findIndex(x => x.id === drag.gid);
+  let to = state.groups.findIndex(x => x.id === g.id);
+  const [moved] = state.groups.splice(from, 1);
+  state.groups.splice(to, 0, moved);
+  drag = null;
+  save(); render();
+}
+
+/* ── 파일 트리 ────────────────────────────── */
+function toggleTree(tid, el) {
+  expanded[tid] = !expanded[tid];
+  render();
+}
+async function fillTree(container, rel) {
+  const kids = await api().list_children(rel);
+  container.innerHTML = "";
+  if (!kids.length) {
+    const d = document.createElement("div");
+    d.className = "empty-hint";
+    d.style.padding = "2px 6px";
+    d.textContent = "(비어 있음)";
+    container.appendChild(d);
+    return;
+  }
+  kids.forEach(k => container.appendChild(renderNode(k)));
+}
+function renderNode(k) {
+  const el = document.createElement("div");
+  el.className = "node";
+  const row = document.createElement("div");
+  row.className = "nrow";
+  const icon = document.createElement("span");
+  icon.className = "nicon";
+  icon.textContent = k.dir ? "📁" : fileIcon(k.name);
+  const nm = document.createElement("span");
+  nm.className = "nname";
+  nm.textContent = k.name;
+  row.append(icon, nm);
+  el.appendChild(row);
+
+  let open = false, kidsEl = null;
+  row.onclick = async () => {
+    if (!k.dir) { api().open_path(k.rel); return; }
+    if (open) { kidsEl.remove(); kidsEl = null; open = false; return; }
+    open = true;
+    kidsEl = document.createElement("div");
+    kidsEl.className = "nkids";
+    el.appendChild(kidsEl);
+    await fillTree(kidsEl, k.rel);
+  };
+  row.ondblclick = () => { if (k.dir) api().open_path(k.rel); };
+  if (k.dir) row.title = "클릭: 펼치기 · 더블클릭: 탐색기로 열기";
+  else row.title = "클릭하면 파일이 열려요";
+  return el;
+}
+function fileIcon(name) {
+  const ext = name.split(".").pop().toLowerCase();
+  if (["xlsx", "xls", "xlsm", "csv"].includes(ext)) return "📊";
+  if (["hwp", "hwpx"].includes(ext)) return "📝";
+  if (["doc", "docx", "odt"].includes(ext)) return "📄";
+  if (ext === "pdf") return "📕";
+  if (["jpg", "jpeg", "png", "gif", "bmp"].includes(ext)) return "🖼️";
+  if (["zip", "7z", "rar"].includes(ext)) return "🗜️";
+  if (["dwg", "dxf"].includes(ext)) return "📐";
+  return "📃";
+}
+
+/* ── 기타 ────────────────────────────────── */
+document.getElementById("btnRefresh").onclick = () => load(true);
+document.getElementById("search").oninput = e => {
+  filter = e.target.value.trim().toLowerCase();
+  render();
+};
+document.getElementById("rootPath").onclick = async () => {
+  const p = prompt("할일 폴더 경로:", state.root);
+  if (!p || p === state.root) return;
+  const ok = await api().set_root(p);
+  if (ok) load(false);
+  else toast("⚠ 폴더를 찾을 수 없어요: " + p);
+};
+
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 4000);
+}
+
+/* ── 커스텀 타이틀바 (프레임 없는 창 제어) ─────── */
+document.getElementById("tbMin").onclick = () => api().minimize_window();
+document.getElementById("tbClose").onclick = () => api().hide_window();
+document.getElementById("tbPin").onclick = async () => {
+  const onTop = await api().toggle_on_top();
+  document.getElementById("tbPin").classList.toggle("active", onTop);
+};
+
+(function setupResize() {
+  const grip = document.getElementById("resizeGrip");
+  let startX, startY, startW, startH, dragging = false, pending = false;
+  grip.addEventListener("mousedown", e => {
+    e.preventDefault();
+    dragging = true;
+    startX = e.screenX; startY = e.screenY;
+    startW = window.innerWidth; startH = window.innerHeight;
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+  function onMove(e) {
+    if (!dragging) return;
+    const w = startW + (e.screenX - startX);
+    const h = startH + (e.screenY - startY);
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => {
+      api().resize_window(w, h);
+      pending = false;
+    });
+  }
+  function onUp() {
+    dragging = false;
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+  }
+})();
+
+window.addEventListener("pywebviewready", () => load(true));
+</script>
+</body>
+</html>

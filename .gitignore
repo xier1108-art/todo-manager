@@ -1,0 +1,28 @@
+# PyInstaller 빌드 산출물
+build/
+dist/
+*.spec
+
+# 데이터 파일 (개인 업무 데이터는 올리지 않음)
+data.json
+
+# Python 캐시
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 가상환경
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 시스템 파일
+.DS_Store
+Thumbs.db
+desktop.ini
