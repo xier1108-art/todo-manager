@@ -11,6 +11,8 @@ import webview
 import pystray
 from PIL import Image
 
+import gcal
+
 # exe로 빌드된 경우 실행 파일이 있는 폴더에 데이터를 저장하고,
 # 번들된 리소스(web/index.html)는 PyInstaller가 풀어놓은 임시 위치(_MEIPASS)에서 읽는다.
 if getattr(sys, "frozen", False):
@@ -24,6 +26,8 @@ DATA_FILE = APP_DIR / "data.json"
 DEFAULT_ROOT = r"G:\바탕화면\★할일★"
 ICON_FILE = RES_DIR / "icon.ico"
 MIN_W, MIN_H = 760, 500
+CREDENTIALS_FILE = APP_DIR / "credentials.json"
+TOKEN_FILE = APP_DIR / "token.json"
 
 
 def load_data():
@@ -160,6 +164,72 @@ class Api:
         width = max(MIN_W, int(width))
         height = max(MIN_H, int(height))
         window.resize(width, height)
+
+    # ── 구글 캘린더 연동 ─────────────────────────
+    def gcal_status(self):
+        return {
+            "credentialsExist": CREDENTIALS_FILE.exists(),
+            "connected": gcal.is_connected(TOKEN_FILE),
+        }
+
+    def gcal_connect(self):
+        try:
+            gcal.get_service(CREDENTIALS_FILE, TOKEN_FILE)  # 최초 호출 시 브라우저 로그인 유도
+            return {"ok": True}
+        except gcal.GCalError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"연결에 실패했습니다: {e}"}
+
+    def gcal_disconnect(self):
+        gcal.disconnect(TOKEN_FILE)
+        return {"ok": True}
+
+    def gcal_list_calendars(self):
+        try:
+            return {"calendars": gcal.list_calendars(CREDENTIALS_FILE, TOKEN_FILE)}
+        except gcal.GCalError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"캘린더 목록을 가져오지 못했습니다: {e}"}
+
+    def gcal_sync_deadline(self, task_id, task_name, deadline, calendar_id):
+        """마감일이 바뀔 때마다 호출되어 종일 일정을 등록/수정/삭제한다."""
+        if not calendar_id:
+            return {"skipped": True}
+
+        data = load_data()
+        meta = data["meta"].setdefault(
+            task_id, {"memo": "", "deadline": "", "status": "대기"}
+        )
+        old_event_id = meta.get("gcalEventId")
+        old_calendar_id = meta.get("gcalCalendarId")
+
+        try:
+            if not deadline:
+                if old_event_id and old_calendar_id:
+                    gcal.delete_event(CREDENTIALS_FILE, TOKEN_FILE, old_calendar_id, old_event_id)
+                meta.pop("gcalEventId", None)
+                meta.pop("gcalCalendarId", None)
+                save_data(data)
+                return {"ok": True}
+
+            if old_event_id and old_calendar_id and old_calendar_id != calendar_id:
+                gcal.delete_event(CREDENTIALS_FILE, TOKEN_FILE, old_calendar_id, old_event_id)
+                old_event_id = None
+
+            event_id = gcal.upsert_event(
+                CREDENTIALS_FILE, TOKEN_FILE, calendar_id, old_event_id,
+                f"(업무) {task_name}", deadline,
+            )
+            meta["gcalEventId"] = event_id
+            meta["gcalCalendarId"] = calendar_id
+            save_data(data)
+            return {"ok": True}
+        except gcal.GCalError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"동기화에 실패했습니다: {e}"}
 
 
 def make_tray_icon():

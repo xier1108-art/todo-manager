@@ -119,6 +119,19 @@
   }
   button.tool:hover { background: var(--hover); color: var(--fg); }
   #btnTheme { padding: 5px 9px; font-size: 14px; line-height: 1; }
+  .gcal-panel {
+    position: absolute; top: 34px; right: 0; z-index: 25; width: 240px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.15); padding: 10px; font-size: 12.5px;
+  }
+  .gcal-panel.hidden { display: none; }
+  .gcal-row { color: var(--fg-soft); line-height: 1.5; margin-bottom: 8px; }
+  .gcal-row select {
+    width: 100%; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--input-bg); color: var(--fg); font-size: 12.5px;
+  }
+  .gcal-actions { display: flex; gap: 6px; }
+  .gcal-actions button { flex: 1; padding: 5px 8px; font-size: 12px; }
   #sortSelect {
     border: 1px solid var(--line); background: var(--bg); color: var(--fg-soft);
     border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer;
@@ -288,6 +301,19 @@
     </select>
     <button class="tool" id="btnAddGroup">＋ 그룹 추가</button>
     <button class="tool" id="btnRefresh">⟳ 새로고침</button>
+    <div style="position:relative">
+      <button class="tool" id="btnGCal" title="구글 캘린더 연동">📅 캘린더</button>
+      <div id="gcalPanel" class="gcal-panel hidden">
+        <div class="gcal-row" id="gcalStatusRow">확인 중…</div>
+        <div class="gcal-row" id="gcalCalRow" style="display:none">
+          <select id="gcalSelect"></select>
+        </div>
+        <div class="gcal-actions">
+          <button class="tool" id="gcalConnectBtn" style="display:none">구글 계정 연결</button>
+          <button class="tool" id="gcalDisconnectBtn" style="display:none">연결 해제</button>
+        </div>
+      </div>
+    </div>
     <button class="tool" id="btnTheme" title="테마 전환"></button>
   </div>
   <div id="summary"></div>
@@ -514,7 +540,7 @@ function renderTask(tid, g) {
   name.title = "클릭하면 탐색기로 폴더가 열려요\n" + tid;
   name.onclick = () => api().open_path(tid);
 
-  const dl = renderDeadline(m);
+  const dl = renderDeadline(tid, m);
 
   const memo = document.createElement("span");
   memo.className = "memo" + (m.memo ? "" : " empty");
@@ -541,7 +567,7 @@ function renderTask(tid, g) {
   return el;
 }
 
-function renderDeadline(m) {
+function renderDeadline(tid, m) {
   const dl = document.createElement("span");
   dl.className = "dl";
   if (!m.deadline) {
@@ -568,7 +594,13 @@ function renderDeadline(m) {
     dl.appendChild(inp);
     inp.focus();
     try { inp.showPicker(); } catch (e) {}
-    const done = () => { m.deadline = inp.value || ""; save(); render(); };
+    const done = () => {
+      const next = inp.value || "";
+      const changed = next !== (m.deadline || "");
+      m.deadline = next;
+      save(); render();
+      if (changed) syncDeadlineToCalendar(tid, next);
+    };
     inp.onchange = done;
     inp.onblur = done;
     dl.onclick = null;
@@ -812,6 +844,87 @@ document.getElementById("rootPath").onclick = async () => {
   const ok = await api().set_root(p);
   if (ok) load(false);
   else toast("⚠ 폴더를 찾을 수 없어요: " + p);
+};
+
+/* ── 구글 캘린더 연동 ─────────────────────── */
+async function syncDeadlineToCalendar(tid, deadline) {
+  if (!state.gcalCalendarId) return;
+  const t = tasks[tid];
+  if (!t) return;
+  const res = await api().gcal_sync_deadline(tid, t.name, deadline, state.gcalCalendarId);
+  if (res && res.error) toast("⚠ 캘린더 동기화 실패: " + res.error);
+}
+
+const $gcalPanel = document.getElementById("gcalPanel");
+document.getElementById("btnGCal").onclick = async e => {
+  e.stopPropagation();
+  const willOpen = $gcalPanel.classList.contains("hidden");
+  $gcalPanel.classList.toggle("hidden");
+  if (willOpen) await refreshGcalPanel();
+};
+document.addEventListener("click", e => {
+  if (!$gcalPanel.classList.contains("hidden") &&
+      !$gcalPanel.contains(e.target) && e.target.id !== "btnGCal") {
+    $gcalPanel.classList.add("hidden");
+  }
+});
+
+async function refreshGcalPanel() {
+  const statusRow = document.getElementById("gcalStatusRow");
+  const calRow = document.getElementById("gcalCalRow");
+  const connectBtn = document.getElementById("gcalConnectBtn");
+  const disconnectBtn = document.getElementById("gcalDisconnectBtn");
+  statusRow.innerHTML = "확인 중…";
+  calRow.style.display = "none";
+  connectBtn.style.display = "none";
+  disconnectBtn.style.display = "none";
+
+  const status = await api().gcal_status();
+  if (!status.credentialsExist) {
+    statusRow.innerHTML = "credentials.json이 없어요.<br>README를 참고해 구글 클라우드에서 발급받아 프로그램 폴더에 넣어주세요.";
+    return;
+  }
+  if (!status.connected) {
+    statusRow.textContent = "아직 구글 캘린더에 연결되지 않았어요.";
+    connectBtn.style.display = "";
+    return;
+  }
+  statusRow.textContent = "연결됨 · 마감일을 등록하면 자동으로 캘린더에 올라가요";
+  disconnectBtn.style.display = "";
+  calRow.style.display = "";
+  const sel = document.getElementById("gcalSelect");
+  sel.innerHTML = "<option>불러오는 중…</option>";
+  const res = await api().gcal_list_calendars();
+  if (res.error) {
+    sel.innerHTML = `<option>${res.error}</option>`;
+    return;
+  }
+  sel.innerHTML = res.calendars.map(c =>
+    `<option value="${c.id}">${c.name}${c.primary ? " (기본)" : ""}</option>`
+  ).join("");
+  if (state.gcalCalendarId) sel.value = state.gcalCalendarId;
+  sel.onchange = () => {
+    state.gcalCalendarId = sel.value;
+    save();
+    toast("캘린더가 설정됐어요: " + sel.options[sel.selectedIndex].text);
+  };
+}
+
+document.getElementById("gcalConnectBtn").onclick = async () => {
+  const btn = document.getElementById("gcalConnectBtn");
+  btn.textContent = "브라우저에서 로그인 중…";
+  btn.disabled = true;
+  const res = await api().gcal_connect();
+  btn.disabled = false;
+  btn.textContent = "구글 계정 연결";
+  if (res.error) { toast("⚠ " + res.error); return; }
+  toast("구글 계정이 연결됐어요");
+  await refreshGcalPanel();
+};
+document.getElementById("gcalDisconnectBtn").onclick = async () => {
+  await api().gcal_disconnect();
+  toast("연결이 해제됐어요");
+  await refreshGcalPanel();
 };
 
 let toastTimer = null;

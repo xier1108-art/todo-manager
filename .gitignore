@@ -6,6 +6,10 @@ dist/
 # 데이터 파일 (개인 업무 데이터는 올리지 않음)
 data.json
 
+# 구글 캘린더 연동 — OAuth 클라이언트 비밀정보 / 개인 로그인 토큰
+credentials.json
+token.json
+
 # Python 캐시
 __pycache__/
 *.py[cod]
