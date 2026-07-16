@@ -6,9 +6,12 @@ dist/
 # 데이터 파일 (개인 업무 데이터는 올리지 않음)
 data.json
 
-# 구글 캘린더 연동 — OAuth 클라이언트 비밀정보 / 개인 로그인 토큰
+# 구글 캘린더 연동 — 개인 로그인 토큰 (클라이언트 시크릿은 이제 이 앱에 없음, relay 서버 쪽 환경변수로만 존재)
 credentials.json
 token.json
+
+# relay(중계 서버)는 별도 저장소(todo-manager-gcal-relay)로 관리됨
+relay/
 
 # Python 캐시
 __pycache__/

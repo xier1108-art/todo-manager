@@ -873,11 +873,9 @@ document.getElementById("search").oninput = e => {
   render();
 };
 document.getElementById("rootPath").onclick = async () => {
-  const p = prompt("할일 폴더 경로:", state.root);
+  const p = await api().pick_root_folder();
   if (!p || p === state.root) return;
-  const ok = await api().set_root(p);
-  if (ok) load(false);
-  else toast("⚠ 폴더를 찾을 수 없어요: " + p);
+  load(false);
 };
 
 /* ── 구글 캘린더 연동 ─────────────────────── */
@@ -914,10 +912,6 @@ async function refreshGcalPanel() {
   disconnectBtn.style.display = "none";
 
   const status = await api().gcal_status();
-  if (!status.credentialsExist) {
-    statusRow.innerHTML = "credentials.json이 없어요.<br>README를 참고해 구글 클라우드에서 발급받아 프로그램 폴더에 넣어주세요.";
-    return;
-  }
   if (!status.connected) {
     statusRow.textContent = "아직 구글 캘린더에 연결되지 않았어요.";
     connectBtn.style.display = "";

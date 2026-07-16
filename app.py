@@ -26,7 +26,6 @@ DATA_FILE = APP_DIR / "data.json"
 DEFAULT_ROOT = r"G:\바탕화면\★할일★"
 ICON_FILE = RES_DIR / "icon.ico"
 MIN_W, MIN_H = 760, 500
-CREDENTIALS_FILE = APP_DIR / "credentials.json"
 TOKEN_FILE = APP_DIR / "token.json"
 
 
@@ -149,6 +148,18 @@ class Api:
         save_data(data)
         return True
 
+    def pick_root_folder(self):
+        """네이티브 폴더 선택 다이얼로그를 띄운다. 고르면 자동으로 저장까지 한다."""
+        data = load_data()
+        start_dir = data["root"] if Path(data["root"]).is_dir() else ""
+        result = window.create_file_dialog(webview.FOLDER_DIALOG, directory=start_dir)
+        if not result:
+            return None
+        path = result[0]
+        data["root"] = path
+        save_data(data)
+        return path
+
     # ── 창 제어 (프레임 없는 위젯형 창이라 직접 구현) ──────
     def minimize_window(self):
         window.minimize()
@@ -165,16 +176,13 @@ class Api:
         height = max(MIN_H, int(height))
         window.resize(width, height)
 
-    # ── 구글 캘린더 연동 ─────────────────────────
+    # ── 구글 캘린더 연동 (중계 서버를 통해 클라이언트 시크릿 없이 로그인) ──
     def gcal_status(self):
-        return {
-            "credentialsExist": CREDENTIALS_FILE.exists(),
-            "connected": gcal.is_connected(TOKEN_FILE),
-        }
+        return {"connected": gcal.is_connected(TOKEN_FILE)}
 
     def gcal_connect(self):
         try:
-            gcal.get_service(CREDENTIALS_FILE, TOKEN_FILE)  # 최초 호출 시 브라우저 로그인 유도
+            gcal.connect(TOKEN_FILE)  # 브라우저 로그인 진행
             return {"ok": True}
         except gcal.GCalError as e:
             return {"error": str(e)}
@@ -187,7 +195,7 @@ class Api:
 
     def gcal_list_calendars(self):
         try:
-            return {"calendars": gcal.list_calendars(CREDENTIALS_FILE, TOKEN_FILE)}
+            return {"calendars": gcal.list_calendars(TOKEN_FILE)}
         except gcal.GCalError as e:
             return {"error": str(e)}
         except Exception as e:
@@ -208,19 +216,18 @@ class Api:
         try:
             if not deadline:
                 if old_event_id and old_calendar_id:
-                    gcal.delete_event(CREDENTIALS_FILE, TOKEN_FILE, old_calendar_id, old_event_id)
+                    gcal.delete_event(TOKEN_FILE, old_calendar_id, old_event_id)
                 meta.pop("gcalEventId", None)
                 meta.pop("gcalCalendarId", None)
                 save_data(data)
                 return {"ok": True}
 
             if old_event_id and old_calendar_id and old_calendar_id != calendar_id:
-                gcal.delete_event(CREDENTIALS_FILE, TOKEN_FILE, old_calendar_id, old_event_id)
+                gcal.delete_event(TOKEN_FILE, old_calendar_id, old_event_id)
                 old_event_id = None
 
             event_id = gcal.upsert_event(
-                CREDENTIALS_FILE, TOKEN_FILE, calendar_id, old_event_id,
-                f"(업무) {task_name}", deadline,
+                TOKEN_FILE, calendar_id, old_event_id, f"(업무) {task_name}", deadline,
             )
             meta["gcalEventId"] = event_id
             meta["gcalCalendarId"] = calendar_id
