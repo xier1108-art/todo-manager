@@ -145,10 +145,11 @@
   .gcal-actions { display: flex; gap: 6px; }
   .gcal-actions button { flex: 1; padding: 6px 8px; font-size: 12px; justify-content: center; }
   #gcalConnectBtn { background: var(--accent-soft); color: var(--accent); font-weight: 600; border-color: transparent; }
-  .settings-sizes { display: flex; gap: 4px; }
+  .settings-sizes { display: flex; gap: 3px; }
   .size-btn {
     flex: 1; border: 1px solid var(--line); background: var(--bg); color: var(--fg-soft);
-    border-radius: 6px; padding: 6px 2px; font-size: 11px; cursor: pointer; font-family: inherit;
+    border-radius: 6px; padding: 6px 1px; font-size: 10.5px; cursor: pointer; font-family: inherit;
+    white-space: nowrap;
   }
   .size-btn:hover { background: var(--hover); color: var(--fg); }
   .size-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
@@ -276,6 +277,8 @@
     border-left: 3px solid transparent;
   }
   .trow:hover { background: var(--hover); }
+  .trow.colored { background: var(--task-bg, transparent); }
+  .trow.colored:hover { background: var(--task-bg-hover, var(--hover)); }
 
   .tdot {
     flex: none; width: 13px; height: 13px; border-radius: 50%; cursor: pointer;
@@ -861,7 +864,15 @@ function renderTask(tid, g, sg) {
   info.title = "파일 수 · 마지막 수정일";
 
   row.append(handle, dot, chev, status, name, dl, memo, info);
-  row.style.borderLeftColor = m.color || "transparent";
+  if (m.color) {
+    row.classList.add("colored");
+    row.style.borderLeftColor = m.color;
+    row.style.setProperty("--task-bg", hexToRgba(m.color, .14));
+    row.style.setProperty("--task-bg-hover", hexToRgba(m.color, .24));
+  } else {
+    row.classList.remove("colored");
+    row.style.borderLeftColor = "transparent";
+  }
   el.appendChild(row);
 
   el.addEventListener("dragover", e => taskDragOver(e, tid, g, sg));
@@ -1352,6 +1363,10 @@ document.addEventListener("click", e => {
 /* ── 업무별 강조색 ─────────────────────────── */
 const TASK_COLORS = ["#e03e3e", "#d9730d", "#dfab01", "#0f7b6c", "#0b6e99",
                       "#6940a5", "#ad1a72", "#64473a", "#3b82f6", "#64748b"];
+function hexToRgba(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
 const $colorPopup = document.getElementById("colorPopup");
 const $colorGrid = document.getElementById("colorGrid");
 let colorPopupTarget = null;
