@@ -49,23 +49,29 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { height: 100%; overflow-y: scroll; background: var(--bg); }
+  html { height: 100%; overflow: hidden; background: var(--bg); }
   body {
-    min-height: 100%;
+    height: 100%; display: flex; flex-direction: column; overflow: hidden;
     font-family: var(--app-font-family, -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", sans-serif);
     background: var(--bg); color: var(--fg); font-size: 14px;
     transition: background .15s, color .15s;
   }
-  /* 폰트 확대는 main에만 적용한다 (header에 적용하면 position:sticky의
-     top 오프셋까지 확대되어 타이틀바 높이와 어긋나며 틈이 생김) */
-  main { zoom: 1; }
+  /* main이 직접 스크롤을 갖고, 스크롤바가 창 오른쪽 끝(리사이즈 손잡이 자리)이
+     아니라 살짝 안쪽에서 보이도록 margin으로 띄운다. 폰트 확대(zoom)는 스크롤
+     컨테이너인 main 자신이 아니라 안쪽 #mainZoom에만 걸어서, main의 높이 계산이
+     확대 배율에 영향받지 않게 한다 (안 그러면 상단에 틈이 생김). */
+  main {
+    flex: 1 1 auto; min-height: 0; overflow-y: scroll; overflow-x: hidden;
+    margin-right: 8px;
+  }
+  #mainZoom { zoom: 1; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
 
   /* ── 커스텀 타이틀바 (프레임 없는 창) ─────────── */
   .titlebar {
-    position: sticky; top: 0; z-index: 30; height: 30px;
+    flex: none; z-index: 30; height: 30px;
     display: flex; align-items: center; gap: 8px;
     padding: 0 8px 0 14px; background: var(--bg);
     border-bottom: 1px solid var(--line);
@@ -94,9 +100,9 @@
   .rz-s { bottom: 0; }
   .rz-w, .rz-e { top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
   .rz-w { left: 0; }
-  /* 세로 스크롤바(10px)보다 안쪽에서 시작해 스크롤 조작과 겹치지 않게 함.
-     모서리(rz-se/rz-ne)는 스크롤바와 덜 겹치므로 그대로 가장자리에 붙여 둔다. */
-  .rz-e { right: 10px; width: 6px; }
+  /* 스크롤바가 main의 margin-right만큼 안쪽에서 보이므로, 가장자리는
+     리사이즈 손잡이가 온전히 차지한다 (더 이상 스크롤바와 겹치지 않음). */
+  .rz-e { right: 0; width: 8px; }
   .rz-nw, .rz-ne, .rz-sw, .rz-se { width: 12px; height: 12px; }
   .rz-nw { top: 0; left: 0; cursor: nwse-resize; }
   .rz-se {
@@ -107,9 +113,13 @@
   .rz-ne { top: 0; right: 0; cursor: nesw-resize; }
   .rz-sw { bottom: 0; left: 0; cursor: nesw-resize; }
 
+  #appContent {
+    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+  }
+
   /* ── 상단 바 ─────────────────────────────── */
   header {
-    position: sticky; top: 30px; z-index: 20; background: var(--bg);
+    flex: none; z-index: 20; background: var(--bg);
     border-bottom: 1px solid var(--line);
     padding: 16px 26px 10px;
   }
@@ -188,7 +198,7 @@
   #summary .urgent { color: var(--s2-fg); }
 
   /* ── 그룹 ─────────────────────────────── */
-  main { padding: 8px 26px 40px; max-width: 1200px; margin: 0 auto; }
+  #mainZoom { padding: 8px 26px 40px; max-width: 1200px; margin: 0 auto; }
   .group { margin-top: 20px; border-radius: 8px; }
   .group.drag-over-group { outline: 2px solid var(--accent); outline-offset: 2px; }
   .ghead {
@@ -402,6 +412,7 @@
   <button class="tb-btn" id="tbMin" title="최소화">
     <svg width="12" height="12" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="2" fill="currentColor"></rect></svg>
   </button>
+  <button class="tb-btn" id="tbMax" title="최대화"></button>
   <button class="tb-btn tb-close" id="tbClose" title="닫기 (트레이로 숨김)">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"></path></svg>
   </button>
@@ -498,7 +509,7 @@
   </div>
   <div id="summary"></div>
 </header>
-<main id="main"><div id="loading">폴더를 읽는 중…</div></main>
+<main id="main"><div id="mainZoom"><div id="loading">폴더를 읽는 중…</div></div></main>
 </div>
 <div id="toast"></div>
 <div id="colorPopup" class="color-popup hidden">
@@ -529,6 +540,7 @@ let filter = "";
 let sortMode = localStorage.getItem("sortMode") || "custom";
 
 const $main = document.getElementById("main");
+const $mainZoom = document.getElementById("mainZoom");
 const api = () => window.pywebview.api;
 
 /* ── 테마 (라이트/다크/시스템) ─────────────── */
@@ -660,8 +672,8 @@ function render() {
   document.getElementById("summary").innerHTML =
     `업무 ${total}건 · 완료 ${done}건` + (urgent ? ` · <span class="urgent">급함 ${urgent}건</span>` : "");
 
-  $main.innerHTML = "";
-  state.groups.forEach(g => $main.appendChild(renderGroup(g)));
+  $mainZoom.innerHTML = "";
+  state.groups.forEach(g => $mainZoom.appendChild(renderGroup(g)));
 }
 
 function renderGroup(g) {
@@ -1008,12 +1020,11 @@ document.addEventListener("dragover", e => { dragPointerY = e.clientY; });
 (function autoScrollLoop() {
   if (drag && dragPointerY !== null) {
     const margin = 90;
-    const vh = window.innerHeight;
-    const scroller = document.scrollingElement || document.documentElement;
-    if (dragPointerY < margin) {
-      scroller.scrollTop -= Math.max(4, (margin - dragPointerY) / 3);
-    } else if (dragPointerY > vh - margin) {
-      scroller.scrollTop += Math.max(4, (dragPointerY - (vh - margin)) / 3);
+    const r = $main.getBoundingClientRect();
+    if (dragPointerY < r.top + margin) {
+      $main.scrollTop -= Math.max(4, (r.top + margin - dragPointerY) / 3);
+    } else if (dragPointerY > r.bottom - margin) {
+      $main.scrollTop += Math.max(4, (dragPointerY - (r.bottom - margin)) / 3);
     }
   }
   requestAnimationFrame(autoScrollLoop);
@@ -1322,7 +1333,7 @@ function toast(msg) {
 function applyFontSettings() {
   const scale = parseInt(localStorage.getItem("uiFontScale") || "100", 10);
   const family = localStorage.getItem("uiFontFamily") || "";
-  $main.style.zoom = scale / 100;
+  $mainZoom.style.zoom = scale / 100;
   if (family) document.documentElement.style.setProperty("--app-font-family", family);
   else document.documentElement.style.removeProperty("--app-font-family");
   document.querySelectorAll(".size-btn").forEach(b => {
@@ -1417,6 +1428,27 @@ document.getElementById("tbPin").onclick = async () => {
   const onTop = await api().toggle_on_top();
   document.getElementById("tbPin").classList.toggle("active", onTop);
 };
+
+const ICON_MAXIMIZE = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="1"></rect></svg>';
+const ICON_RESTORE = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="7" width="13" height="13" rx="1"></rect><path d="M4 17V6a2 2 0 012-2h11"></path></svg>';
+const $tbMax = document.getElementById("tbMax");
+let isMaximized = false;
+function setMaxIcon() {
+  $tbMax.innerHTML = isMaximized ? ICON_RESTORE : ICON_MAXIMIZE;
+  $tbMax.title = isMaximized ? "이전 크기로" : "최대화";
+}
+async function toggleMaximize() {
+  if (isMaximized) await api().restore_window();
+  else await api().maximize_window();
+  isMaximized = !isMaximized;
+  setMaxIcon();
+}
+setMaxIcon();
+$tbMax.onclick = toggleMaximize;
+document.querySelector(".titlebar").addEventListener("dblclick", e => {
+  if (e.target.closest(".tb-btn")) return;
+  toggleMaximize();
+});
 
 (function setupResize() {
   document.querySelectorAll(".rz").forEach(handle => {

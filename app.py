@@ -197,6 +197,12 @@ class Api:
     def hide_window(self):
         window.hide()
 
+    def maximize_window(self):
+        window.maximize()
+
+    def restore_window(self):
+        window.restore()
+
     def toggle_on_top(self):
         window.on_top = not window.on_top
         return window.on_top
