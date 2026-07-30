@@ -56,7 +56,9 @@
     background: var(--bg); color: var(--fg); font-size: 14px;
     transition: background .15s, color .15s;
   }
-  #appContent { zoom: 1; }
+  /* 폰트 확대는 main에만 적용한다 (header에 적용하면 position:sticky의
+     top 오프셋까지 확대되어 타이틀바 높이와 어긋나며 틈이 생김) */
+  main { zoom: 1; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -1317,11 +1319,10 @@ function toast(msg) {
 }
 
 /* ── 화면 설정 (글꼴 크기·서체) ─────────────── */
-const $appContent = document.getElementById("appContent");
 function applyFontSettings() {
   const scale = parseInt(localStorage.getItem("uiFontScale") || "100", 10);
   const family = localStorage.getItem("uiFontFamily") || "";
-  $appContent.style.zoom = scale / 100;
+  $main.style.zoom = scale / 100;
   if (family) document.documentElement.style.setProperty("--app-font-family", family);
   else document.documentElement.style.removeProperty("--app-font-family");
   document.querySelectorAll(".size-btn").forEach(b => {
