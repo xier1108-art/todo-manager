@@ -49,13 +49,14 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { height: 100%; overflow-y: scroll; }
+  html { height: 100%; overflow-y: scroll; background: var(--bg); }
   body {
     min-height: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", sans-serif;
+    font-family: var(--app-font-family, -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", sans-serif);
     background: var(--bg); color: var(--fg); font-size: 14px;
     transition: background .15s, color .15s;
   }
+  #appContent { zoom: 1; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -84,12 +85,25 @@
   .tb-btn.tb-close:hover { background: var(--s2-bg); color: var(--s2-fg); }
   .tb-btn.active { color: var(--accent); }
 
-  #resizeGrip {
-    position: fixed; right: 0; bottom: 0; width: 16px; height: 16px;
-    cursor: nwse-resize; z-index: 40; color: var(--fg-faint);
+  /* ── 리사이즈 핸들 (8방향) ─────────────────────── */
+  .rz { position: fixed; z-index: 41; }
+  .rz-n, .rz-s { left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+  .rz-n { top: 0; }
+  .rz-s { bottom: 0; }
+  .rz-w, .rz-e { top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+  .rz-w { left: 0; }
+  /* 세로 스크롤바(10px)보다 안쪽에서 시작해 스크롤 조작과 겹치지 않게 함.
+     모서리(rz-se/rz-ne)는 스크롤바와 덜 겹치므로 그대로 가장자리에 붙여 둔다. */
+  .rz-e { right: 10px; width: 6px; }
+  .rz-nw, .rz-ne, .rz-sw, .rz-se { width: 12px; height: 12px; }
+  .rz-nw { top: 0; left: 0; cursor: nwse-resize; }
+  .rz-se {
+    bottom: 0; right: 0; cursor: nwse-resize; color: var(--fg-faint);
     display: flex; align-items: center; justify-content: center;
   }
-  #resizeGrip svg { pointer-events: none; }
+  .rz-se svg { pointer-events: none; }
+  .rz-ne { top: 0; right: 0; cursor: nesw-resize; }
+  .rz-sw { bottom: 0; left: 0; cursor: nesw-resize; }
 
   /* ── 상단 바 ─────────────────────────────── */
   header {
@@ -131,6 +145,15 @@
   .gcal-actions { display: flex; gap: 6px; }
   .gcal-actions button { flex: 1; padding: 6px 8px; font-size: 12px; justify-content: center; }
   #gcalConnectBtn { background: var(--accent-soft); color: var(--accent); font-weight: 600; border-color: transparent; }
+  .settings-sizes { display: flex; gap: 4px; }
+  .size-btn {
+    flex: 1; border: 1px solid var(--line); background: var(--bg); color: var(--fg-soft);
+    border-radius: 6px; padding: 6px 2px; font-size: 11px; cursor: pointer; font-family: inherit;
+  }
+  .size-btn:hover { background: var(--hover); color: var(--fg); }
+  .size-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .settings-label { font-size: 11px; color: var(--fg-faint); margin: 10px 0 6px; }
+  .settings-label:first-child { margin-top: 0; }
   /* ── 커스텀 드롭다운 (네이티브 select는 프레임 없는 창에서 멈춤 버그가 있어 직접 구현) ── */
   .custom-select { position: relative; }
   .cs-btn {
@@ -212,15 +235,72 @@
     border-radius: 8px; padding: 16px 34px; text-align: center;
   }
 
+  /* ── 중분류(서브그룹) ─────────────────────── */
+  .subgroup { margin: 8px 0 8px 22px; border-left: 2px solid var(--line); padding-left: 10px; border-radius: 6px; }
+  .subgroup.drag-over-group { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sghead {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 5px; border-radius: 6px; user-select: none;
+  }
+  .sghead:hover { background: var(--hover); }
+  .sghandle {
+    cursor: grab; color: var(--fg-faint); opacity: .4; line-height: 1;
+    padding: 2px 3px; border-radius: 4px; flex: none; display: flex;
+  }
+  .sghead:hover .sghandle { opacity: 1; }
+  .sghandle:hover { background: var(--hover2); color: var(--fg-soft) !important; }
+  .sgname {
+    font-weight: 600; font-size: 12.5px; letter-spacing: -.1px; padding: 2px 6px; border-radius: 4px;
+    cursor: text; min-width: 24px; color: var(--fg-soft);
+  }
+  .sgname:hover { background: var(--hover2); color: var(--fg); }
+  .sgname input {
+    font: inherit; font-weight: 600; border: none; outline: none;
+    background: var(--input-bg); border-radius: 4px; padding: 0 2px;
+    box-shadow: 0 0 0 2px var(--accent); color: var(--fg);
+  }
+  .sgbody { margin-top: 2px; min-height: 6px; }
+  .add-subgroup {
+    font-size: 11.5px; color: var(--fg-faint); cursor: pointer; padding: 5px 9px;
+    border-radius: 6px; margin: 2px 0 2px 22px; display: inline-block;
+  }
+  .add-subgroup:hover { background: var(--hover); color: var(--fg-soft); }
+
   /* ── 업무 행 ─────────────────────────────── */
   .task {
     border-radius: 7px; margin: 1px 0;
   }
   .trow {
     display: flex; align-items: center; gap: 8px;
-    padding: 6px 6px; border-radius: 7px; position: relative;
+    padding: 6px 6px 6px 9px; border-radius: 7px; position: relative;
+    border-left: 3px solid transparent;
   }
   .trow:hover { background: var(--hover); }
+
+  .tdot {
+    flex: none; width: 13px; height: 13px; border-radius: 50%; cursor: pointer;
+    border: 1.5px dashed var(--fg-faint); opacity: .35; display: inline-block;
+  }
+  .tdot:hover { opacity: 1; }
+  .tdot.set { border-style: solid; border-color: transparent; opacity: 1; }
+
+  .color-popup {
+    position: fixed; z-index: 45; background: var(--bg-panel); border: 1px solid var(--line);
+    border-radius: 9px; box-shadow: 0 10px 30px rgba(0,0,0,.25); padding: 10px; width: 168px;
+  }
+  .color-popup.hidden { display: none; }
+  .color-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 8px; }
+  .color-swatch {
+    width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; box-sizing: border-box;
+  }
+  .color-swatch:hover { border-color: var(--fg-faint); }
+  .color-swatch.selected { border-color: var(--fg); }
+  .color-clear {
+    text-align: center; font-size: 12px; color: var(--fg-soft); cursor: pointer;
+    padding: 6px; border-radius: 6px;
+  }
+  .color-clear:hover { background: var(--hover2); color: var(--fg); }
   .task.dragging { opacity: .35; }
   .task.drop-above > .trow::before,
   .task.drop-below > .trow::after {
@@ -321,9 +401,17 @@
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"></path></svg>
   </button>
 </div>
-<div id="resizeGrip" title="끌어서 창 크기 조절">
+<div class="rz rz-n" data-fp="8"></div>
+<div class="rz rz-s" data-fp="1"></div>
+<div class="rz rz-w" data-fp="4"></div>
+<div class="rz rz-e" data-fp="2"></div>
+<div class="rz rz-nw" data-fp="12"></div>
+<div class="rz rz-ne" data-fp="10"></div>
+<div class="rz rz-sw" data-fp="5"></div>
+<div class="rz rz-se" data-fp="3" title="끌어서 창 크기 조절">
   <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 2L2 12M12 7L7 12M12 12v0" stroke="currentColor" stroke-width="1.4"></path></svg>
 </div>
+<div id="appContent">
 <header>
   <div class="hrow">
     <h1>할일 정리</h1>
@@ -371,12 +459,47 @@
         </div>
       </div>
     </div>
+    <div style="position:relative">
+      <button class="tool" id="btnSettings" title="화면 설정 (글꼴 크기·서체)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg>
+      </button>
+      <div id="settingsPanel" class="gcal-panel hidden">
+        <div class="settings-label">글자 크기</div>
+        <div class="settings-sizes">
+          <button class="size-btn" data-scale="90" type="button">작게</button>
+          <button class="size-btn" data-scale="100" type="button">보통</button>
+          <button class="size-btn" data-scale="115" type="button">크게</button>
+          <button class="size-btn" data-scale="130" type="button">아주 크게</button>
+        </div>
+        <div class="settings-label">글꼴</div>
+        <div class="custom-select" id="fontDropdown">
+          <button class="cs-btn" id="fontBtn" type="button" style="width:100%">
+            <span id="fontBtnLabel">시스템 기본</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <div class="cs-menu hidden" id="fontMenu">
+            <div class="cs-item" data-value="">시스템 기본</div>
+            <div class="cs-item" data-value="'맑은 고딕', sans-serif">맑은 고딕</div>
+            <div class="cs-item" data-value="'나눔고딕', sans-serif">나눔고딕</div>
+            <div class="cs-item" data-value="굴림, sans-serif">굴림</div>
+            <div class="cs-item" data-value="돋움, sans-serif">돋움</div>
+            <div class="cs-item" data-value="바탕, serif">바탕</div>
+            <div class="cs-item" data-value="'Segoe UI', sans-serif">Segoe UI</div>
+          </div>
+        </div>
+      </div>
+    </div>
     <button class="tool" id="btnTheme" title="테마 전환"></button>
   </div>
   <div id="summary"></div>
 </header>
 <main id="main"><div id="loading">폴더를 읽는 중…</div></main>
+</div>
 <div id="toast"></div>
+<div id="colorPopup" class="color-popup hidden">
+  <div class="color-grid" id="colorGrid"></div>
+  <div class="color-clear" id="colorClearBtn">지우기</div>
+</div>
 
 <script>
 "use strict";
@@ -537,6 +660,7 @@ function render() {
 }
 
 function renderGroup(g) {
+  if (!g.subgroups) g.subgroups = [];
   const el = document.createElement("section");
   el.className = "group";
   el.dataset.gid = g.id;
@@ -564,9 +688,11 @@ function renderGroup(g) {
   name.onclick = () => editGroupName(g, name);
 
   const visible = sortTasks(g.tasks.filter(matchFilter));
+  let totalVisible = visible.length;
+  g.subgroups.forEach(sg => { totalVisible += sortTasks(sg.tasks.filter(matchFilter)).length; });
   const count = document.createElement("span");
   count.className = "gcount";
-  count.textContent = visible.length;
+  count.textContent = totalVisible;
 
   const del = document.createElement("button");
   del.className = "gdel";
@@ -580,20 +706,88 @@ function renderGroup(g) {
   body.className = "gbody" + (g.collapsed ? " collapsed" : "");
   body.dataset.gid = g.id;
 
+  if (!visible.length && !g.subgroups.length) {
+    const hint = document.createElement("div");
+    hint.className = "empty-hint";
+    hint.textContent = filter ? "검색 결과 없음" : "업무를 여기로 끌어다 놓을 수 있어요";
+    body.appendChild(hint);
+  } else {
+    visible.forEach(tid => body.appendChild(renderTask(tid, g, null)));
+    g.subgroups.forEach(sg => body.appendChild(renderSubgroup(sg, g)));
+  }
+  const addSg = document.createElement("div");
+  addSg.className = "add-subgroup";
+  addSg.textContent = "+ 중분류 추가";
+  addSg.onclick = () => addSubgroup(g);
+  body.appendChild(addSg);
+
+  body.addEventListener("dragover", e => taskDragOverBody(e, g, null));
+  body.addEventListener("drop", e => taskDropOnBody(e, g, null));
+
+  el.append(head, body);
+  el.addEventListener("dragover", e => groupDragOver(e, g));
+  el.addEventListener("drop", e => groupDrop(e, g));
+  return el;
+}
+
+function renderSubgroup(sg, g) {
+  const el = document.createElement("section");
+  el.className = "subgroup";
+  el.dataset.sgid = sg.id;
+
+  const head = document.createElement("div");
+  head.className = "sghead";
+
+  const handle = document.createElement("span");
+  handle.className = "sghandle";
+  handle.innerHTML = ICON_HANDLE;
+  handle.title = "끌어서 중분류 순서 변경";
+  handle.draggable = true;
+  handle.addEventListener("dragstart", e => startSubgroupDrag(e, g.id, sg.id, el));
+  handle.addEventListener("dragend", endDrag);
+
+  const chev = document.createElement("span");
+  chev.className = "chev" + (sg.collapsed ? " closed" : "");
+  chev.innerHTML = ICON_CHEV;
+  chev.onclick = () => { sg.collapsed = !sg.collapsed; save(); render(); };
+
+  const name = document.createElement("span");
+  name.className = "sgname";
+  name.textContent = sg.name;
+  name.title = "클릭하면 중분류 이름을 수정할 수 있어요";
+  name.onclick = () => editGroupName(sg, name);
+
+  const visible = sortTasks(sg.tasks.filter(matchFilter));
+  const count = document.createElement("span");
+  count.className = "gcount";
+  count.textContent = visible.length;
+
+  const del = document.createElement("button");
+  del.className = "gdel";
+  del.innerHTML = ICON_TRASH;
+  del.title = "중분류 삭제 (업무는 상위 그룹으로 이동)";
+  del.onclick = () => deleteSubgroup(g, sg);
+
+  head.append(handle, chev, name, count, del);
+
+  const body = document.createElement("div");
+  body.className = "gbody sgbody" + (sg.collapsed ? " collapsed" : "");
+  body.dataset.sgid = sg.id;
+
   if (!visible.length) {
     const hint = document.createElement("div");
     hint.className = "empty-hint";
     hint.textContent = filter ? "검색 결과 없음" : "업무를 여기로 끌어다 놓을 수 있어요";
     body.appendChild(hint);
   } else {
-    visible.forEach(tid => body.appendChild(renderTask(tid, g)));
+    visible.forEach(tid => body.appendChild(renderTask(tid, g, sg)));
   }
-  body.addEventListener("dragover", e => taskDragOverBody(e, g));
-  body.addEventListener("drop", e => taskDropOnBody(e, g));
+  body.addEventListener("dragover", e => taskDragOverBody(e, g, sg));
+  body.addEventListener("drop", e => taskDropOnBody(e, g, sg));
 
   el.append(head, body);
-  el.addEventListener("dragover", e => groupDragOver(e, g));
-  el.addEventListener("drop", e => groupDrop(e, g));
+  el.addEventListener("dragover", e => subgroupDragOver(e, g, sg));
+  el.addEventListener("drop", e => subgroupDrop(e, g, sg));
   return el;
 }
 
@@ -604,7 +798,7 @@ function matchFilter(tid) {
   return (t.name + " " + (m.memo || "")).toLowerCase().includes(filter);
 }
 
-function renderTask(tid, g) {
+function renderTask(tid, g, sg) {
   const t = tasks[tid];
   const m = meta(tid);
   const el = document.createElement("div");
@@ -622,8 +816,14 @@ function renderTask(tid, g) {
     ? "정렬 중에는 순서를 끌 수 없어요 (사용자 지정 순서로 바꾸면 끌 수 있어요)"
     : "끌어서 순서 변경 / 다른 그룹으로 이동";
   handle.draggable = !sortLocked;
-  handle.addEventListener("dragstart", e => startTaskDrag(e, tid, g.id, el));
+  handle.addEventListener("dragstart", e => startTaskDrag(e, tid, g.id, sg ? sg.id : null, el));
   handle.addEventListener("dragend", endDrag);
+
+  const dot = document.createElement("span");
+  dot.className = "tdot" + (m.color ? " set" : "");
+  if (m.color) dot.style.background = m.color;
+  dot.title = "강조색 지정";
+  dot.onclick = e => { e.stopPropagation(); openColorPopup(tid, dot); };
 
   const chev = document.createElement("span");
   chev.className = "chev" + (expanded[tid] ? "" : " closed");
@@ -660,11 +860,12 @@ function renderTask(tid, g) {
   info.textContent = `${t.fileCount}개 · ${t.mtime}`;
   info.title = "파일 수 · 마지막 수정일";
 
-  row.append(handle, chev, status, name, dl, memo, info);
+  row.append(handle, dot, chev, status, name, dl, memo, info);
+  row.style.borderLeftColor = m.color || "transparent";
   el.appendChild(row);
 
-  el.addEventListener("dragover", e => taskDragOver(e, tid, g));
-  el.addEventListener("drop", e => taskDrop(e, tid, g));
+  el.addEventListener("dragover", e => taskDragOver(e, tid, g, sg));
+  el.addEventListener("drop", e => taskDrop(e, tid, g, sg));
 
   if (expanded[tid]) {
     const tree = document.createElement("div");
@@ -767,22 +968,26 @@ document.getElementById("btnAddGroup").onclick = () => {
 };
 
 function deleteGroup(g) {
-  if (g.tasks.length) {
-    if (!confirm(`'${g.name}' 그룹을 삭제할까요?\n업무 ${g.tasks.length}건은 다른 그룹으로 옮겨져요. (폴더는 그대로 유지)`)) return;
+  const subTaskCount = (g.subgroups || []).reduce((n, sg) => n + sg.tasks.length, 0);
+  const totalTasks = g.tasks.length + subTaskCount;
+  if (totalTasks) {
+    if (!confirm(`'${g.name}' 그룹을 삭제할까요?\n업무 ${totalTasks}건은 다른 그룹으로 옮겨져요. (폴더는 그대로 유지)`)) return;
     let dest = state.groups.find(x => x !== g);
     if (!dest) {
       dest = { id: Math.random().toString(36).slice(2, 10), name: "미분류",
-               collapsed: false, tasks: [] };
+               collapsed: false, tasks: [], subgroups: [] };
       state.groups.push(dest);
     }
+    if (!dest.subgroups) dest.subgroups = [];
     dest.tasks.push(...g.tasks);
+    dest.subgroups.push(...(g.subgroups || []));
   }
   state.groups = state.groups.filter(x => x !== g);
   save(); render();
 }
 
 /* ── 드래그 & 드롭 ────────────────────────── */
-let drag = null; // {type:'task'|'group', tid, gid}
+let drag = null; // {type:'task'|'group'|'subgroup', tid, gid, sgid}
 
 /* 드래그 중 화면 가장자리 근처로 가면 자동 스크롤 */
 let dragPointerY = null;
@@ -801,8 +1006,8 @@ document.addEventListener("dragover", e => { dragPointerY = e.clientY; });
   requestAnimationFrame(autoScrollLoop);
 })();
 
-function startTaskDrag(e, tid, gid, el) {
-  drag = { type: "task", tid, gid };
+function startTaskDrag(e, tid, gid, sgid, el) {
+  drag = { type: "task", tid, gid, sgid };
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", tid);
   e.dataTransfer.setDragImage(el, 10, 10);
@@ -812,6 +1017,12 @@ function startGroupDrag(e, gid, el) {
   drag = { type: "group", gid };
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", gid);
+  e.dataTransfer.setDragImage(el, 10, 10);
+}
+function startSubgroupDrag(e, gid, sgid, el) {
+  drag = { type: "subgroup", gid, sgid };
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", sgid);
   e.dataTransfer.setDragImage(el, 10, 10);
 }
 function endDrag() {
@@ -826,7 +1037,7 @@ function clearMarks() {
     x.classList.remove("drag-over-group"));
 }
 
-function taskDragOver(e, tid, g) {
+function taskDragOver(e, tid, g, sg) {
   if (!drag || drag.type !== "task" || drag.tid === tid) return;
   e.preventDefault(); e.stopPropagation();
   e.dataTransfer.dropEffect = "move";
@@ -836,32 +1047,44 @@ function taskDragOver(e, tid, g) {
   const below = e.clientY > r.top + r.height / 2;
   el.classList.add(below ? "drop-below" : "drop-above");
 }
-function taskDrop(e, tid, g) {
+function taskDrop(e, tid, g, sg) {
   if (!drag || drag.type !== "task" || drag.tid === tid) return;
   e.preventDefault(); e.stopPropagation();
   const el = e.currentTarget;
   const r = el.querySelector(".trow").getBoundingClientRect();
   const below = e.clientY > r.top + r.height / 2;
-  moveTask(drag.tid, g, g.tasks.indexOf(tid) + (below ? 1 : 0));
+  const arr = sg ? sg.tasks : g.tasks;
+  moveTask(drag.tid, g, sg, arr.indexOf(tid) + (below ? 1 : 0));
 }
-function taskDragOverBody(e, g) {
-  if (!drag || drag.type !== "task") return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
-}
-function taskDropOnBody(e, g) {
+function taskDragOverBody(e, g, sg) {
   if (!drag || drag.type !== "task") return;
   e.preventDefault(); e.stopPropagation();
-  moveTask(drag.tid, g, g.tasks.length);
+  e.dataTransfer.dropEffect = "move";
 }
-function moveTask(tid, destGroup, index) {
-  const src = state.groups.find(x => x.tasks.includes(tid));
-  if (!src) return;
-  const oldIdx = src.tasks.indexOf(tid);
-  src.tasks.splice(oldIdx, 1);
-  if (src === destGroup && oldIdx < index) index--;
-  index = Math.max(0, Math.min(index, destGroup.tasks.length));
-  destGroup.tasks.splice(index, 0, tid);
+function taskDropOnBody(e, g, sg) {
+  if (!drag || drag.type !== "task") return;
+  e.preventDefault(); e.stopPropagation();
+  const arr = sg ? sg.tasks : g.tasks;
+  moveTask(drag.tid, g, sg, arr.length);
+}
+function findTaskArray(tid) {
+  for (const g of state.groups) {
+    if (g.tasks.includes(tid)) return g.tasks;
+    for (const sg of g.subgroups || []) {
+      if (sg.tasks.includes(tid)) return sg.tasks;
+    }
+  }
+  return null;
+}
+function moveTask(tid, destGroup, destSub, index) {
+  const srcArr = findTaskArray(tid);
+  if (!srcArr) return;
+  const oldIdx = srcArr.indexOf(tid);
+  srcArr.splice(oldIdx, 1);
+  const destArr = destSub ? destSub.tasks : destGroup.tasks;
+  if (srcArr === destArr && oldIdx < index) index--;
+  index = Math.max(0, Math.min(index, destArr.length));
+  destArr.splice(index, 0, tid);
   drag = null;
   save(); render();
 }
@@ -881,6 +1104,43 @@ function groupDrop(e, g) {
   const [moved] = state.groups.splice(from, 1);
   state.groups.splice(to, 0, moved);
   drag = null;
+  save(); render();
+}
+
+function subgroupDragOver(e, g, sg) {
+  if (!drag || drag.type !== "subgroup" || drag.gid !== g.id || drag.sgid === sg.id) return;
+  e.preventDefault(); e.stopPropagation();
+  e.dataTransfer.dropEffect = "move";
+  clearMarks();
+  e.currentTarget.classList.add("drag-over-group");
+}
+function subgroupDrop(e, g, sg) {
+  if (!drag || drag.type !== "subgroup" || drag.gid !== g.id || drag.sgid === sg.id) return;
+  e.preventDefault(); e.stopPropagation();
+  const from = g.subgroups.findIndex(x => x.id === drag.sgid);
+  const to = g.subgroups.findIndex(x => x.id === sg.id);
+  const [moved] = g.subgroups.splice(from, 1);
+  g.subgroups.splice(to, 0, moved);
+  drag = null;
+  save(); render();
+}
+
+/* ── 중분류 추가/삭제 ─────────────────────── */
+function addSubgroup(g) {
+  if (!g.subgroups) g.subgroups = [];
+  const sg = { id: Math.random().toString(36).slice(2, 10),
+               name: "새 중분류", collapsed: false, tasks: [] };
+  g.subgroups.push(sg);
+  save(); render();
+  const span = document.querySelector(`.subgroup[data-sgid="${sg.id}"] .sgname`);
+  if (span) editGroupName(sg, span);
+}
+function deleteSubgroup(g, sg) {
+  if (sg.tasks.length) {
+    if (!confirm(`'${sg.name}' 중분류를 삭제할까요?\n업무 ${sg.tasks.length}건은 '${g.name}' 그룹으로 옮겨져요. (폴더는 그대로 유지)`)) return;
+    g.tasks.push(...sg.tasks);
+  }
+  g.subgroups = g.subgroups.filter(x => x !== sg);
   save(); render();
 }
 
@@ -1045,6 +1305,95 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove("show"), 4000);
 }
 
+/* ── 화면 설정 (글꼴 크기·서체) ─────────────── */
+const $appContent = document.getElementById("appContent");
+function applyFontSettings() {
+  const scale = parseInt(localStorage.getItem("uiFontScale") || "100", 10);
+  const family = localStorage.getItem("uiFontFamily") || "";
+  $appContent.style.zoom = scale / 100;
+  if (family) document.documentElement.style.setProperty("--app-font-family", family);
+  else document.documentElement.style.removeProperty("--app-font-family");
+  document.querySelectorAll(".size-btn").forEach(b => {
+    b.classList.toggle("selected", parseInt(b.dataset.scale, 10) === scale);
+  });
+  const items = document.querySelectorAll("#fontMenu .cs-item");
+  let matched = null;
+  items.forEach(el => {
+    const sel = el.dataset.value === family;
+    el.classList.toggle("selected", sel);
+    if (sel) matched = el;
+  });
+  document.getElementById("fontBtnLabel").textContent = matched ? matched.textContent : "시스템 기본";
+}
+document.querySelectorAll(".size-btn").forEach(b => {
+  b.onclick = () => {
+    localStorage.setItem("uiFontScale", b.dataset.scale);
+    applyFontSettings();
+  };
+});
+setupDropdown("fontBtn", "fontMenu", value => {
+  localStorage.setItem("uiFontFamily", value);
+  applyFontSettings();
+});
+applyFontSettings();
+
+const $settingsPanel = document.getElementById("settingsPanel");
+document.getElementById("btnSettings").onclick = e => {
+  e.stopPropagation();
+  $settingsPanel.classList.toggle("hidden");
+};
+document.addEventListener("click", e => {
+  if (!$settingsPanel.classList.contains("hidden") &&
+      !$settingsPanel.contains(e.target) && e.target.id !== "btnSettings") {
+    $settingsPanel.classList.add("hidden");
+  }
+});
+
+/* ── 업무별 강조색 ─────────────────────────── */
+const TASK_COLORS = ["#e03e3e", "#d9730d", "#dfab01", "#0f7b6c", "#0b6e99",
+                      "#6940a5", "#ad1a72", "#64473a", "#3b82f6", "#64748b"];
+const $colorPopup = document.getElementById("colorPopup");
+const $colorGrid = document.getElementById("colorGrid");
+let colorPopupTarget = null;
+TASK_COLORS.forEach(hex => {
+  const sw = document.createElement("div");
+  sw.className = "color-swatch";
+  sw.style.background = hex;
+  sw.dataset.color = hex;
+  sw.onclick = () => {
+    if (colorPopupTarget) {
+      meta(colorPopupTarget).color = hex;
+      save(); render();
+    }
+    $colorPopup.classList.add("hidden");
+  };
+  $colorGrid.appendChild(sw);
+});
+document.getElementById("colorClearBtn").onclick = () => {
+  if (colorPopupTarget) {
+    delete meta(colorPopupTarget).color;
+    save(); render();
+  }
+  $colorPopup.classList.add("hidden");
+};
+function openColorPopup(tid, anchorEl) {
+  colorPopupTarget = tid;
+  const m = meta(tid);
+  $colorGrid.querySelectorAll(".color-swatch").forEach(sw => {
+    sw.classList.toggle("selected", sw.dataset.color === m.color);
+  });
+  const r = anchorEl.getBoundingClientRect();
+  $colorPopup.style.left = r.left + "px";
+  $colorPopup.style.top = (r.bottom + 4) + "px";
+  $colorPopup.classList.remove("hidden");
+}
+document.addEventListener("click", e => {
+  if (!$colorPopup.classList.contains("hidden") &&
+      !$colorPopup.contains(e.target) && !e.target.classList.contains("tdot")) {
+    $colorPopup.classList.add("hidden");
+  }
+});
+
 /* ── 커스텀 타이틀바 (프레임 없는 창 제어) ─────── */
 document.getElementById("tbMin").onclick = () => api().minimize_window();
 document.getElementById("tbClose").onclick = () => api().hide_window();
@@ -1054,32 +1403,40 @@ document.getElementById("tbPin").onclick = async () => {
 };
 
 (function setupResize() {
-  const grip = document.getElementById("resizeGrip");
-  let startX, startY, startW, startH, dragging = false, pending = false;
-  grip.addEventListener("mousedown", e => {
-    e.preventDefault();
-    dragging = true;
-    startX = e.screenX; startY = e.screenY;
-    startW = window.innerWidth; startH = window.innerHeight;
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  });
-  function onMove(e) {
-    if (!dragging) return;
-    const w = startW + (e.screenX - startX);
-    const h = startH + (e.screenY - startY);
-    if (pending) return;
-    pending = true;
-    requestAnimationFrame(() => {
-      api().resize_window(w, h);
-      pending = false;
+  document.querySelectorAll(".rz").forEach(handle => {
+    const dir = handle.className.match(/rz-(\w+)/)[1]; // n, s, e, w, nw, ne, sw, se
+    const fp = parseInt(handle.dataset.fp, 10);
+    let startX, startY, startW, startH, dragging = false, pending = false;
+    handle.addEventListener("mousedown", e => {
+      e.preventDefault();
+      dragging = true;
+      startX = e.screenX; startY = e.screenY;
+      startW = window.innerWidth; startH = window.innerHeight;
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
     });
-  }
-  function onUp() {
-    dragging = false;
-    document.removeEventListener("mousemove", onMove);
-    document.removeEventListener("mouseup", onUp);
-  }
+    function onMove(e) {
+      if (!dragging) return;
+      const dx = e.screenX - startX;
+      const dy = e.screenY - startY;
+      let w = startW, h = startH;
+      if (dir.includes("e")) w = startW + dx;
+      if (dir.includes("w")) w = startW - dx;
+      if (dir.includes("s")) h = startH + dy;
+      if (dir.includes("n")) h = startH - dy;
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        api().resize_window(w, h, fp);
+        pending = false;
+      });
+    }
+    function onUp() {
+      dragging = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    }
+  });
 })();
 
 window.addEventListener("pywebviewready", () => load(true));

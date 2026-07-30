@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 import webview
+from webview.window import FixPoint
 import pystray
 from PIL import Image
 
@@ -27,6 +28,22 @@ DEFAULT_ROOT = r"G:\바탕화면\★할일★"
 ICON_FILE = RES_DIR / "icon.ico"
 MIN_W, MIN_H = 760, 500
 TOKEN_FILE = APP_DIR / "token.json"
+
+
+def get_bg_color():
+    """OS 다크/라이트 설정에 맞춰 초기 창 배경색을 고른다.
+    (WebView2가 콘텐츠를 그리기 전/리사이즈 순간에 살짝 보일 수 있는
+    기본 배경이 앱 테마와 다르면 모서리 등에 틈처럼 보이는 걸 방지)"""
+    try:
+        import winreg
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+        ) as key:
+            light, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+        return "#faf8f4" if light else "#0c0d0f"
+    except OSError:
+        return "#0c0d0f"
 
 
 def load_data():
@@ -86,6 +103,7 @@ class Api:
         tasks = scan_tasks(data["root"])
 
         # 디스크에서 사라진 업무(완료 후 개인 하드로 이동)는 목록에서 정리
+        # (그룹 바로 아래 업무뿐 아니라 중분류 안의 업무도 함께 정리)
         removed = []
         for g in data["groups"]:
             kept = []
@@ -95,10 +113,22 @@ class Api:
                 else:
                     removed.append(tid.split("/")[-1])
             g["tasks"] = kept
+            for sg in g.get("subgroups", []):
+                kept_sg = []
+                for tid in sg.get("tasks", []):
+                    if tid in tasks:
+                        kept_sg.append(tid)
+                    else:
+                        removed.append(tid.split("/")[-1])
+                sg["tasks"] = kept_sg
         data["meta"] = {k: v for k, v in data.get("meta", {}).items() if k in tasks}
 
         # 새로 생긴 업무는 카테고리 이름과 같은 그룹에 자동 배치 (없으면 그룹 생성)
-        assigned = {tid for g in data["groups"] for tid in g["tasks"]}
+        assigned = set()
+        for g in data["groups"]:
+            assigned.update(g["tasks"])
+            for sg in g.get("subgroups", []):
+                assigned.update(sg.get("tasks", []))
         for tid, t in tasks.items():
             if tid in assigned:
                 continue
@@ -171,10 +201,13 @@ class Api:
         window.on_top = not window.on_top
         return window.on_top
 
-    def resize_window(self, width, height):
+    def resize_window(self, width, height, fix_point=3):
+        """fix_point: FixPoint 비트마스크 (NORTH=1, WEST=2, EAST=4, SOUTH=8).
+        드래그하는 모서리/변의 반대쪽을 고정점으로 넘긴다. 기본값(3=NORTH|WEST)은
+        기존 우하단 리사이즈와 동일하게 좌상단을 고정한다."""
         width = max(MIN_W, int(width))
         height = max(MIN_H, int(height))
-        window.resize(width, height)
+        window.resize(width, height, FixPoint(int(fix_point)))
 
     # ── 구글 캘린더 연동 (중계 서버를 통해 클라이언트 시크릿 없이 로그인) ──
     def gcal_status(self):
@@ -289,6 +322,7 @@ if __name__ == "__main__":
         min_size=(MIN_W, MIN_H),
         frameless=True,
         easy_drag=False,
+        background_color=get_bg_color(),
     )
     window.events.closing += on_closing
     webview.start(setup_tray, icon=str(ICON_FILE) if ICON_FILE.exists() else None)
