@@ -128,20 +128,33 @@
   }
   .gcal-panel.hidden { display: none; }
   .gcal-row { color: var(--fg-soft); line-height: 1.6; margin-bottom: 9px; }
-  .gcal-row select {
-    width: 100%; padding: 6px 7px; border: 1px solid var(--line); border-radius: 6px;
-    background: var(--input-bg); color: var(--fg); font-size: 12px;
-  }
   .gcal-actions { display: flex; gap: 6px; }
   .gcal-actions button { flex: 1; padding: 6px 8px; font-size: 12px; justify-content: center; }
   #gcalConnectBtn { background: var(--accent-soft); color: var(--accent); font-weight: 600; border-color: transparent; }
-  #sortSelect {
+  /* ── 커스텀 드롭다운 (네이티브 select는 프레임 없는 창에서 멈춤 버그가 있어 직접 구현) ── */
+  .custom-select { position: relative; }
+  .cs-btn {
     border: 1px solid var(--line); background: var(--bg); color: var(--fg-soft);
     border-radius: 7px; padding: 6px 10px; font-size: 12.5px; cursor: pointer;
-    outline: none; white-space: nowrap;
+    outline: none; white-space: nowrap; display: flex; align-items: center;
+    justify-content: space-between; gap: 8px; font-family: inherit;
   }
-  #sortSelect:hover { background: var(--hover); color: var(--fg); }
-  #sortSelect:focus { border-color: var(--accent); }
+  .cs-btn:hover { background: var(--hover); color: var(--fg); }
+  .cs-btn svg { flex: none; transition: transform .12s; }
+  .cs-btn.open svg { transform: rotate(180deg); }
+  .cs-menu {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 100%;
+    background: var(--bg-panel); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.2); padding: 4px; font-size: 12.5px;
+    max-height: 260px; overflow-y: auto;
+  }
+  .cs-menu.hidden { display: none; }
+  .cs-item {
+    padding: 6px 10px; border-radius: 5px; cursor: pointer; color: var(--fg-soft);
+    white-space: nowrap;
+  }
+  .cs-item:hover { background: var(--hover); color: var(--fg); }
+  .cs-item.selected { color: var(--accent); font-weight: 600; }
   #summary {
     font-size: 11.5px; color: var(--fg-faint); margin-top: 10px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -320,14 +333,20 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
       <input id="search" type="text" placeholder="업무 검색…">
     </div>
-    <select id="sortSelect" title="정렬 방식">
-      <option value="custom">사용자 지정 순서</option>
-      <option value="name">이름순</option>
-      <option value="deadline">마감일순</option>
-      <option value="status">상태순</option>
-      <option value="recent">최근 수정순</option>
-      <option value="files">파일 많은순</option>
-    </select>
+    <div class="custom-select" id="sortDropdown">
+      <button class="cs-btn" id="sortBtn" type="button" title="정렬 방식">
+        <span id="sortBtnLabel">사용자 지정 순서</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </button>
+      <div class="cs-menu hidden" id="sortMenu">
+        <div class="cs-item" data-value="custom">사용자 지정 순서</div>
+        <div class="cs-item" data-value="name">이름순</div>
+        <div class="cs-item" data-value="deadline">마감일순</div>
+        <div class="cs-item" data-value="status">상태순</div>
+        <div class="cs-item" data-value="recent">최근 수정순</div>
+        <div class="cs-item" data-value="files">파일 많은순</div>
+      </div>
+    </div>
     <button class="tool" id="btnAddGroup" title="새 그룹 추가">＋ 그룹</button>
     <button class="tool" id="btnRefresh" title="폴더 다시 스캔">⟳ 새로고침</button>
     <div style="position:relative">
@@ -338,7 +357,13 @@
       <div id="gcalPanel" class="gcal-panel hidden">
         <div class="gcal-row" id="gcalStatusRow">확인 중…</div>
         <div class="gcal-row" id="gcalCalRow" style="display:none">
-          <select id="gcalSelect"></select>
+          <div class="custom-select" id="gcalDropdown">
+            <button class="cs-btn" id="gcalBtn" type="button" style="width:100%">
+              <span id="gcalBtnLabel">불러오는 중…</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <div class="cs-menu hidden" id="gcalMenu"></div>
+          </div>
         </div>
         <div class="gcal-actions">
           <button class="tool" id="gcalConnectBtn" style="display:none">구글 계정 연결</button>
@@ -430,13 +455,53 @@ function sortTasks(ids) {
   if (sortMode === "custom" || !SORTERS[sortMode]) return ids;
   return ids.slice().sort(SORTERS[sortMode]);
 }
-const $sortSelect = document.getElementById("sortSelect");
-$sortSelect.value = sortMode;
-$sortSelect.onchange = () => {
-  sortMode = $sortSelect.value;
-  localStorage.setItem("sortMode", sortMode);
-  render();
+
+/* ── 커스텀 드롭다운 (프레임 없는 창에서 네이티브 select가 멈추는 버그 회피) ── */
+function closeAllDropdowns() {
+  document.querySelectorAll(".cs-menu").forEach(m => m.classList.add("hidden"));
+  document.querySelectorAll(".cs-btn").forEach(b => b.classList.remove("open"));
+}
+document.addEventListener("click", closeAllDropdowns);
+
+function setupDropdown(btnId, menuId, onSelect) {
+  const btn = document.getElementById(btnId);
+  const menu = document.getElementById(menuId);
+  btn.onclick = e => {
+    e.stopPropagation();
+    const willOpen = menu.classList.contains("hidden");
+    closeAllDropdowns();
+    if (willOpen) {
+      menu.classList.remove("hidden");
+      btn.classList.add("open");
+    }
+  };
+  menu.onclick = e => {
+    const item = e.target.closest(".cs-item");
+    if (!item) return;
+    e.stopPropagation();
+    closeAllDropdowns();
+    onSelect(item.dataset.value, item.textContent);
+  };
+  return { btn, menu };
+}
+
+const SORT_LABELS = {
+  custom: "사용자 지정 순서", name: "이름순", deadline: "마감일순",
+  status: "상태순", recent: "최근 수정순", files: "파일 많은순",
 };
+function setSortSelected(mode) {
+  document.getElementById("sortBtnLabel").textContent = SORT_LABELS[mode];
+  document.querySelectorAll("#sortMenu .cs-item").forEach(el => {
+    el.classList.toggle("selected", el.dataset.value === mode);
+  });
+}
+setSortSelected(sortMode);
+setupDropdown("sortBtn", "sortMenu", value => {
+  sortMode = value;
+  localStorage.setItem("sortMode", sortMode);
+  setSortSelected(sortMode);
+  render();
+});
 
 /* ── 데이터 로드/저장 ─────────────────────── */
 async function load(showRemoved) {
@@ -920,23 +985,39 @@ async function refreshGcalPanel() {
   statusRow.textContent = "연결됨 · 마감일을 등록하면 자동으로 캘린더에 올라가요";
   disconnectBtn.style.display = "";
   calRow.style.display = "";
-  const sel = document.getElementById("gcalSelect");
-  sel.innerHTML = "<option>불러오는 중…</option>";
+  const menu = document.getElementById("gcalMenu");
+  const label = document.getElementById("gcalBtnLabel");
+  label.textContent = "불러오는 중…";
+  menu.innerHTML = "";
   const res = await api().gcal_list_calendars();
   if (res.error) {
-    sel.innerHTML = `<option>${res.error}</option>`;
+    label.textContent = res.error;
     return;
   }
-  sel.innerHTML = res.calendars.map(c =>
-    `<option value="${c.id}">${c.name}${c.primary ? " (기본)" : ""}</option>`
-  ).join("");
-  if (state.gcalCalendarId) sel.value = state.gcalCalendarId;
-  sel.onchange = () => {
-    state.gcalCalendarId = sel.value;
-    save();
-    toast("캘린더가 설정됐어요: " + sel.options[sel.selectedIndex].text);
-  };
+  res.calendars.forEach(c => {
+    const item = document.createElement("div");
+    item.className = "cs-item";
+    item.dataset.value = c.id;
+    item.textContent = c.name + (c.primary ? " (기본)" : "");
+    if (c.id === state.gcalCalendarId) {
+      item.classList.add("selected");
+      label.textContent = item.textContent;
+    }
+    menu.appendChild(item);
+  });
+  if (!state.gcalCalendarId && res.calendars.length) {
+    label.textContent = res.calendars[0].name + (res.calendars[0].primary ? " (기본)" : "");
+  }
 }
+setupDropdown("gcalBtn", "gcalMenu", (value, text) => {
+  state.gcalCalendarId = value;
+  save();
+  document.getElementById("gcalBtnLabel").textContent = text;
+  document.querySelectorAll("#gcalMenu .cs-item").forEach(el => {
+    el.classList.toggle("selected", el.dataset.value === value);
+  });
+  toast("캘린더가 설정됐어요: " + text);
+});
 
 document.getElementById("gcalConnectBtn").onclick = async () => {
   const btn = document.getElementById("gcalConnectBtn");
