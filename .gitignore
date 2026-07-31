@@ -6,6 +6,9 @@ dist/
 # 데이터 파일 (개인 업무 데이터는 올리지 않음)
 data.json
 
+# pywebview 지속 프로필 (localStorage 등 브라우저 저장소 - 글꼴 설정 등)
+webview_data/
+
 # 구글 캘린더 연동 — 개인 로그인 토큰 (클라이언트 시크릿은 이제 이 앱에 없음, relay 서버 쪽 환경변수로만 존재)
 credentials.json
 token.json

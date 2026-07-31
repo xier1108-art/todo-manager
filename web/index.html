@@ -375,6 +375,28 @@
     flex: none; font-size: 10.5px; color: var(--fg-faint); white-space: nowrap;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
+  .tpanel {
+    cursor: pointer; color: var(--fg-faint); width: 20px; height: 20px; flex: none;
+    display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: .5;
+  }
+  .tpanel:hover { background: var(--hover2); color: var(--fg-soft); opacity: 1; }
+
+  /* ── 메모 서식 툴바 ─────────────────────────── */
+  .memo-toolbar {
+    position: fixed; z-index: 46; display: flex; align-items: center; gap: 4px;
+    background: var(--bg-panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 5px 6px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+  .memo-toolbar.hidden { display: none; }
+  .memo-toolbar .cs-btn { font-size: 11px; padding: 3px 6px; min-width: 84px; }
+  .memo-toolbar button.mt-btn {
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg-soft);
+    border-radius: 5px; width: 22px; height: 22px; cursor: pointer; font-size: 12px; font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .memo-toolbar button.mt-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .mt-size { display: flex; align-items: center; gap: 3px; }
+  .mt-size-label { font-size: 11px; color: var(--fg-soft); width: 28px; text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
   /* ── 파일 트리 ─────────────────────────────── */
   .tree { padding: 2px 0 6px 60px; }
@@ -400,6 +422,52 @@
   #loading {
     padding: 60px; text-align: center; color: var(--fg-faint); font-size: 14px;
   }
+
+  /* ── 업무 상세 대시보드 (노션 스타일 사이드 패널) ─────── */
+  .detail-panel {
+    position: fixed; top: 30px; right: 0; bottom: 0; width: 320px; z-index: 44;
+    background: var(--bg-panel); border-left: 1px solid var(--line);
+    box-shadow: -8px 0 24px rgba(0,0,0,.15);
+    display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform .18s ease;
+  }
+  .detail-panel.open { transform: translateX(0); }
+  .dp-head {
+    display: flex; align-items: center; gap: 8px; padding: 14px 16px;
+    border-bottom: 1px solid var(--line); flex: none;
+  }
+  .dp-title {
+    font-size: 14px; font-weight: 700; flex: 1; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dp-close {
+    border: none; background: none; color: var(--fg-faint); cursor: pointer;
+    border-radius: 5px; padding: 4px; display: flex;
+  }
+  .dp-close:hover { background: var(--hover2); color: var(--fg); }
+  .dp-body { flex: 1 1 auto; overflow-y: auto; padding: 8px 16px 16px; }
+  .dp-field { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .dp-field-name {
+    flex: none; width: 92px; font-size: 12px; color: var(--fg-faint); cursor: text;
+    padding-top: 2px; word-break: break-word;
+  }
+  .dp-field-value { flex: 1; font-size: 13px; color: var(--fg); cursor: text; min-height: 20px; word-break: break-word; }
+  .dp-field-value.empty { color: var(--fg-faint); }
+  .dp-field input {
+    width: 100%; font: inherit; border: none; outline: none;
+    background: var(--input-bg); border-radius: 4px; padding: 0 3px;
+    box-shadow: 0 0 0 2px var(--accent); color: var(--fg);
+  }
+  .dp-field-del {
+    flex: none; border: none; background: none; color: var(--fg-faint); opacity: .5;
+    cursor: pointer; border-radius: 4px; padding: 2px 4px; display: flex; margin-top: 1px;
+  }
+  .dp-field-del:hover { opacity: 1; background: var(--s2-bg); color: var(--s2-fg) !important; }
+  .dp-add-field {
+    margin-top: 8px; font-size: 12px; color: var(--fg-faint); cursor: pointer;
+    padding: 6px 4px; border-radius: 6px;
+  }
+  .dp-add-field:hover { background: var(--hover); color: var(--fg-soft); }
 </style>
 </head>
 <body>
@@ -516,6 +584,39 @@
   <div class="color-grid" id="colorGrid"></div>
   <div class="color-clear" id="colorClearBtn">지우기</div>
 </div>
+<div id="memoToolbar" class="memo-toolbar hidden">
+  <div class="custom-select" id="memoFontDropdown">
+    <button class="cs-btn" id="memoFontBtn" type="button">
+      <span id="memoFontBtnLabel">기본 글꼴</span>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <div class="cs-menu hidden" id="memoFontMenu">
+      <div class="cs-item" data-value="">기본 글꼴</div>
+      <div class="cs-item" data-value="'맑은 고딕', sans-serif">맑은 고딕</div>
+      <div class="cs-item" data-value="'나눔고딕', sans-serif">나눔고딕</div>
+      <div class="cs-item" data-value="굴림, sans-serif">굴림</div>
+      <div class="cs-item" data-value="돋움, sans-serif">돋움</div>
+      <div class="cs-item" data-value="바탕, serif">바탕</div>
+      <div class="cs-item" data-value="'Segoe UI', sans-serif">Segoe UI</div>
+    </div>
+  </div>
+  <button class="mt-btn" id="memoBoldBtn" type="button" title="굵게"><b>B</b></button>
+  <button class="mt-btn" id="memoItalicBtn" type="button" title="기울임"><i>I</i></button>
+  <div class="mt-size">
+    <button class="mt-btn" id="memoSizeDown" type="button" title="글자 작게">－</button>
+    <span class="mt-size-label" id="memoSizeLabel">13px</span>
+    <button class="mt-btn" id="memoSizeUp" type="button" title="글자 크게">＋</button>
+  </div>
+</div>
+<aside id="detailPanel" class="detail-panel">
+  <div class="dp-head">
+    <span class="dp-title" id="dpTitle"></span>
+    <button class="dp-close" id="dpClose" title="닫기">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"></path></svg>
+    </button>
+  </div>
+  <div class="dp-body" id="dpBody"></div>
+</aside>
 
 <script>
 "use strict";
@@ -532,6 +633,7 @@ const ICON_TRASH = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" 
 const ICON_CALENDAR = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>';
 const ICON_FOLDER = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>';
 const ICON_FILE = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"></path></svg>';
+const ICON_PANEL = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M15 4v16"></path></svg>';
 
 let state = null;   // { root, groups:[{id,name,collapsed,tasks:[]}], meta:{} }
 let tasks = {};     // id -> {name, category, mtime, fileCount}
@@ -870,14 +972,21 @@ function renderTask(tid, g, sg) {
   const memo = document.createElement("span");
   memo.className = "memo" + (m.memo ? "" : " empty");
   memo.textContent = m.memo || "메모 추가…";
+  applyMemoStyle(memo, memoStyleOf(m));
   memo.onclick = () => editMemo(m, memo);
+
+  const panelBtn = document.createElement("span");
+  panelBtn.className = "tpanel";
+  panelBtn.innerHTML = ICON_PANEL;
+  panelBtn.title = "상세 정보";
+  panelBtn.onclick = e => { e.stopPropagation(); openDetailPanel(tid); };
 
   const info = document.createElement("span");
   info.className = "tinfo";
   info.textContent = `${t.fileCount}개 · ${t.mtime}`;
   info.title = "파일 수 · 마지막 수정일";
 
-  row.append(handle, dot, chev, status, name, dl, memo, info);
+  row.append(handle, dot, chev, status, name, dl, memo, panelBtn, info);
   if (m.color) {
     row.classList.add("colored");
     row.style.borderLeftColor = m.color;
@@ -965,19 +1074,189 @@ function editGroupName(g, span) {
   };
 }
 
+function defaultMemoStyle() { return { font: "", bold: false, italic: false, size: 13 }; }
+function memoStyleOf(m) {
+  if (!m.memoStyle) m.memoStyle = defaultMemoStyle();
+  return m.memoStyle;
+}
+function applyMemoStyle(el, st) {
+  el.style.fontFamily = st.font || "";
+  el.style.fontWeight = st.bold ? "700" : "400";
+  el.style.fontStyle = st.italic ? "italic" : "normal";
+  el.style.fontSize = (st.size || 13) + "px";
+}
+
 function editMemo(m, span) {
   const inp = document.createElement("input");
   inp.value = m.memo || "";
   inp.placeholder = "메모…";
+  applyMemoStyle(inp, memoStyleOf(m));
   span.textContent = "";
   span.classList.remove("empty");
   span.appendChild(inp);
   inp.focus();
-  const done = () => { m.memo = inp.value.trim(); save(); render(); };
+  openMemoToolbar(m, inp, span);
+  const done = () => {
+    m.memo = inp.value.trim();
+    closeMemoToolbar();
+    save(); render();
+  };
   inp.onblur = done;
   inp.onkeydown = e => {
     if (e.key === "Enter") inp.blur();
-    if (e.key === "Escape") { inp.onblur = null; render(); }
+    if (e.key === "Escape") { inp.onblur = null; closeMemoToolbar(); render(); }
+  };
+}
+
+/* ── 메모 서식 툴바 (글꼴/굵게/기울임/크기) ─────── */
+const $memoToolbar = document.getElementById("memoToolbar");
+let memoToolbarTarget = null; // { m, inp }
+
+function openMemoToolbar(m, inp, anchorEl) {
+  memoToolbarTarget = { m, inp };
+  const st = memoStyleOf(m);
+  document.getElementById("memoBoldBtn").classList.toggle("active", !!st.bold);
+  document.getElementById("memoItalicBtn").classList.toggle("active", !!st.italic);
+  document.getElementById("memoSizeLabel").textContent = (st.size || 13) + "px";
+  setMemoFontSelected(st.font || "");
+  const r = anchorEl.getBoundingClientRect();
+  $memoToolbar.style.left = Math.max(4, r.left) + "px";
+  $memoToolbar.style.top = (r.bottom + 4) + "px";
+  $memoToolbar.classList.remove("hidden");
+}
+function closeMemoToolbar() {
+  $memoToolbar.classList.add("hidden");
+  memoToolbarTarget = null;
+}
+function setMemoFontSelected(font) {
+  let matched = null;
+  document.querySelectorAll("#memoFontMenu .cs-item").forEach(el => {
+    const sel = el.dataset.value === font;
+    el.classList.toggle("selected", sel);
+    if (sel) matched = el;
+  });
+  document.getElementById("memoFontBtnLabel").textContent = matched ? matched.textContent : "기본 글꼴";
+}
+// 툴바 조작이 메모 입력창의 포커스를 뺏지 않도록 mousedown에서 기본 동작을 막는다.
+$memoToolbar.addEventListener("mousedown", e => e.preventDefault());
+setupDropdown("memoFontBtn", "memoFontMenu", value => {
+  if (!memoToolbarTarget) return;
+  const st = memoStyleOf(memoToolbarTarget.m);
+  st.font = value;
+  setMemoFontSelected(value);
+  applyMemoStyle(memoToolbarTarget.inp, st);
+});
+document.getElementById("memoBoldBtn").onclick = () => {
+  if (!memoToolbarTarget) return;
+  const st = memoStyleOf(memoToolbarTarget.m);
+  st.bold = !st.bold;
+  document.getElementById("memoBoldBtn").classList.toggle("active", st.bold);
+  applyMemoStyle(memoToolbarTarget.inp, st);
+};
+document.getElementById("memoItalicBtn").onclick = () => {
+  if (!memoToolbarTarget) return;
+  const st = memoStyleOf(memoToolbarTarget.m);
+  st.italic = !st.italic;
+  document.getElementById("memoItalicBtn").classList.toggle("active", st.italic);
+  applyMemoStyle(memoToolbarTarget.inp, st);
+};
+function adjustMemoSize(delta) {
+  if (!memoToolbarTarget) return;
+  const st = memoStyleOf(memoToolbarTarget.m);
+  st.size = Math.max(10, Math.min(28, (st.size || 13) + delta));
+  document.getElementById("memoSizeLabel").textContent = st.size + "px";
+  applyMemoStyle(memoToolbarTarget.inp, st);
+}
+document.getElementById("memoSizeDown").onclick = () => adjustMemoSize(-1);
+document.getElementById("memoSizeUp").onclick = () => adjustMemoSize(1);
+
+/* ── 업무 상세 대시보드 (노션 스타일 사이드 패널) ─────── */
+const $detailPanel = document.getElementById("detailPanel");
+const $dpTitle = document.getElementById("dpTitle");
+const $dpBody = document.getElementById("dpBody");
+let detailPanelTid = null;
+
+function fieldsOf(m) {
+  if (!m.fields) m.fields = [];
+  return m.fields;
+}
+function openDetailPanel(tid) {
+  detailPanelTid = tid;
+  renderDetailPanel();
+  $detailPanel.classList.add("open");
+}
+function closeDetailPanel() {
+  $detailPanel.classList.remove("open");
+  detailPanelTid = null;
+}
+document.getElementById("dpClose").onclick = closeDetailPanel;
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $detailPanel.classList.contains("open")) closeDetailPanel();
+});
+
+function renderDetailPanel() {
+  if (!detailPanelTid || !tasks[detailPanelTid]) { closeDetailPanel(); return; }
+  const t = tasks[detailPanelTid];
+  const m = meta(detailPanelTid);
+  $dpTitle.textContent = t.name;
+  $dpBody.innerHTML = "";
+  fieldsOf(m).forEach(f => $dpBody.appendChild(renderDetailField(m, f)));
+  const add = document.createElement("div");
+  add.className = "dp-add-field";
+  add.textContent = "+ 필드 추가";
+  add.onclick = () => {
+    const f = { id: Math.random().toString(36).slice(2, 10), name: "새 필드", value: "" };
+    fieldsOf(m).push(f);
+    save();
+    renderDetailPanel();
+    const nameEl = $dpBody.querySelector(`[data-fid="${f.id}"] .dp-field-name`);
+    if (nameEl) editDetailField(m, f, nameEl, "name");
+  };
+  $dpBody.appendChild(add);
+}
+
+function renderDetailField(m, f) {
+  const row = document.createElement("div");
+  row.className = "dp-field";
+  row.dataset.fid = f.id;
+
+  const name = document.createElement("div");
+  name.className = "dp-field-name";
+  name.textContent = f.name || "필드명";
+  name.onclick = () => editDetailField(m, f, name, "name");
+
+  const value = document.createElement("div");
+  value.className = "dp-field-value" + (f.value ? "" : " empty");
+  value.textContent = f.value || "값 입력…";
+  value.onclick = () => editDetailField(m, f, value, "value");
+
+  const del = document.createElement("button");
+  del.className = "dp-field-del";
+  del.innerHTML = ICON_TRASH;
+  del.title = "필드 삭제";
+  del.onclick = () => {
+    m.fields = fieldsOf(m).filter(x => x !== f);
+    save(); renderDetailPanel();
+  };
+
+  row.append(name, value, del);
+  return row;
+}
+
+function editDetailField(m, f, span, key) {
+  const inp = document.createElement("input");
+  inp.value = f[key] || "";
+  span.textContent = "";
+  span.appendChild(inp);
+  inp.focus(); inp.select();
+  const done = () => {
+    f[key] = inp.value.trim();
+    save(); renderDetailPanel();
+  };
+  inp.onblur = done;
+  inp.onkeydown = e => {
+    if (e.key === "Enter") inp.blur();
+    if (e.key === "Escape") { inp.onblur = null; renderDetailPanel(); }
   };
 }
 
@@ -1010,6 +1289,11 @@ function deleteGroup(g) {
   state.groups = state.groups.filter(x => x !== g);
   save(); render();
 }
+
+// 목록을 스크롤하면 메모 서식 툴바가 원래 위치를 벗어나 붕 뜨는 걸 막기 위해 편집을 마무리한다.
+$main.addEventListener("scroll", () => {
+  if (memoToolbarTarget) memoToolbarTarget.inp.blur();
+});
 
 /* ── 드래그 & 드롭 ────────────────────────── */
 let drag = null; // {type:'task'|'group'|'subgroup', tid, gid, sgid}

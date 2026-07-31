@@ -331,4 +331,11 @@ if __name__ == "__main__":
         background_color=get_bg_color(),
     )
     window.events.closing += on_closing
-    webview.start(setup_tray, icon=str(ICON_FILE) if ICON_FILE.exists() else None)
+    webview.start(
+        setup_tray,
+        icon=str(ICON_FILE) if ICON_FILE.exists() else None,
+        # pywebview는 기본이 private_mode=True(시크릿 모드)라 localStorage(글꼴 설정 등)가
+        # 창을 닫으면 사라진다. 앱 폴더 옆에 프로필을 저장해 재시작해도 유지되게 한다.
+        private_mode=False,
+        storage_path=str(APP_DIR / "webview_data"),
+    )
