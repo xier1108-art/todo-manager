@@ -19,7 +19,9 @@ $backupFiles = @("data.json", "token.json")
 $backupDirs = @("webview_data")
 $backupDir = Join-Path $env:TEMP "할일정리_backup"
 
-if (Test-Path $backupDir) { Remove-Item $backupDir -Recurse -Force }
+# 백업 폴더는 절대 통째로 지우지 않는다 (지난 빌드가 도중에 실패해 dist\할일정리 쪽
+# 원본이 이미 없어진 상태에서 여기까지 비워버리면 유일한 사본을 잃는다).
+# 원본이 있을 때만 백업을 "갱신"하고, 원본이 없으면 예전 백업을 그대로 둔다.
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
 foreach ($f in $backupFiles) {
     if (Test-Path "$distKorean\$f") {
@@ -28,12 +30,32 @@ foreach ($f in $backupFiles) {
 }
 foreach ($d in $backupDirs) {
     if (Test-Path "$distKorean\$d") {
+        if (Test-Path (Join-Path $backupDir $d)) { Remove-Item (Join-Path $backupDir $d) -Recurse -Force }
         Copy-Item "$distKorean\$d" (Join-Path $backupDir $d) -Recurse -Force
     }
 }
 
 if (Test-Path $distBuild) { Remove-Item $distBuild -Recurse -Force }
-if (Test-Path $distKorean) { Remove-Item $distKorean -Recurse -Force }
+
+# 백신 등이 파일을 잠깐 잠그면 Remove-Item이 폴더 일부만 지우고 실패할 수 있다.
+# 그 상태로 계속 진행하면 data.json 등 원본이 없어진 반쪽짜리 폴더가 남으므로,
+# 여기서 확실히 못 지우면 즉시 중단한다 (백업은 이미 위에서 떠 두었으니 안전).
+if (Test-Path $distKorean) {
+    $removed = $false
+    for ($i = 0; $i -lt 5; $i++) {
+        try {
+            Remove-Item $distKorean -Recurse -Force -ErrorAction Stop
+            $removed = $true
+            break
+        } catch {
+            Start-Sleep -Milliseconds 800
+        }
+    }
+    if (-not $removed) {
+        Write-Host "dist\$koreanName 폴더를 지우지 못했습니다 (파일이 잠겨 있을 수 있음). data.json 등은 $backupDir 에 안전하게 백업되어 있습니다." -ForegroundColor Red
+        exit 1
+    }
+}
 
 pyinstaller --name $buildName --windowed --noconfirm --add-data "web;web" --add-data "icon.ico;." --icon "icon.ico" app.py
 

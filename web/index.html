@@ -446,6 +446,10 @@
   }
   .dp-close:hover { background: var(--hover2); color: var(--fg); }
   .dp-body { flex: 1 1 auto; overflow-y: auto; padding: 8px 16px 16px; }
+  .dp-section-label {
+    font-size: 11px; color: var(--fg-faint); margin: 14px 0 4px; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .dp-section-label:first-child { margin-top: 2px; }
   .dp-field { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); }
   .dp-field-name {
     flex: none; width: 92px; font-size: 12px; color: var(--fg-faint); cursor: text;
@@ -1087,6 +1091,7 @@ function applyMemoStyle(el, st) {
 }
 
 function editMemo(m, span) {
+  if (span.querySelector("input")) return; // 이미 편집 중 (더블클릭 등으로 중복 진입하면 툴바가 붕 뜸)
   const inp = document.createElement("input");
   inp.value = m.memo || "";
   inp.placeholder = "메모…";
@@ -1200,6 +1205,19 @@ function renderDetailPanel() {
   const m = meta(detailPanelTid);
   $dpTitle.textContent = t.name;
   $dpBody.innerHTML = "";
+
+  const basics = document.createElement("div");
+  basics.className = "dp-section-label";
+  basics.textContent = "기본 정보";
+  $dpBody.appendChild(basics);
+  $dpBody.appendChild(renderDetailBasic("상태", m.status || "대기"));
+  $dpBody.appendChild(renderDetailBasic("마감일", m.deadline || "지정 안 함"));
+  $dpBody.appendChild(renderDetailBasic("메모", m.memo || "없음"));
+
+  const fieldsLabel = document.createElement("div");
+  fieldsLabel.className = "dp-section-label";
+  fieldsLabel.textContent = "필드";
+  $dpBody.appendChild(fieldsLabel);
   fieldsOf(m).forEach(f => $dpBody.appendChild(renderDetailField(m, f)));
   const add = document.createElement("div");
   add.className = "dp-add-field";
@@ -1213,6 +1231,19 @@ function renderDetailPanel() {
     if (nameEl) editDetailField(m, f, nameEl, "name");
   };
   $dpBody.appendChild(add);
+}
+
+function renderDetailBasic(name, value) {
+  const row = document.createElement("div");
+  row.className = "dp-field";
+  const nameEl = document.createElement("div");
+  nameEl.className = "dp-field-name";
+  nameEl.textContent = name;
+  const valueEl = document.createElement("div");
+  valueEl.className = "dp-field-value";
+  valueEl.textContent = value;
+  row.append(nameEl, valueEl);
+  return row;
 }
 
 function renderDetailField(m, f) {
