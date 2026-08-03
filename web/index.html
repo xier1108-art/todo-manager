@@ -212,8 +212,6 @@
   }
   .ghead:hover .ghandle, .task:hover .thandle { opacity: 1; }
   .ghandle:hover, .thandle:hover { background: var(--hover2); color: var(--fg-soft) !important; }
-  .thandle.disabled { cursor: default; }
-  .thandle.disabled:hover { background: none; color: var(--fg-faint) !important; }
   .chev {
     cursor: pointer; color: var(--fg-faint); width: 20px; height: 20px; flex: none;
     display: flex; align-items: center; justify-content: center;
@@ -932,13 +930,12 @@ function renderTask(tid, g, sg) {
   row.className = "trow";
 
   const handle = document.createElement("span");
-  const sortLocked = sortMode !== "custom";
-  handle.className = "thandle" + (sortLocked ? " disabled" : "");
+  handle.className = "thandle";
   handle.innerHTML = ICON_HANDLE;
-  handle.title = sortLocked
-    ? "정렬 중에는 순서를 끌 수 없어요 (사용자 지정 순서로 바꾸면 끌 수 있어요)"
+  handle.title = sortMode !== "custom"
+    ? "끌어서 순서 변경 / 다른 그룹으로 이동 (사용자 지정 순서로 자동 전환돼요)"
     : "끌어서 순서 변경 / 다른 그룹으로 이동";
-  handle.draggable = !sortLocked;
+  handle.draggable = true;
   handle.addEventListener("dragstart", e => startTaskDrag(e, tid, g.id, sg ? sg.id : null, el));
   handle.addEventListener("dragend", endDrag);
 
@@ -1425,6 +1422,13 @@ function moveTask(tid, destGroup, destSub, index) {
   index = Math.max(0, Math.min(index, destArr.length));
   destArr.splice(index, 0, tid);
   drag = null;
+  // 정렬 중(사용자 지정 순서가 아닐 때)에 드래그로 옮기면, 방금 옮긴 결과가
+  // 보이도록 사용자 지정 순서로 자동 전환한다 (안 그러면 바로 재정렬돼 원위치처럼 보임).
+  if (sortMode !== "custom") {
+    sortMode = "custom";
+    localStorage.setItem("sortMode", sortMode);
+    setSortSelected(sortMode);
+  }
   save(); render();
 }
 
