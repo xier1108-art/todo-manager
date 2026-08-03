@@ -454,6 +454,21 @@
     font-size: 11px; color: var(--fg-faint); margin: 14px 0 4px; text-transform: uppercase; letter-spacing: .04em;
   }
   .dp-section-label:first-child { margin-top: 2px; }
+  .dp-division { margin-bottom: 4px; }
+  .dp-division-value {
+    display: inline-flex; align-items: center; font-size: 13px; font-weight: 700;
+    color: var(--accent); padding: 6px 14px; border-radius: 20px; cursor: pointer;
+    background: var(--accent-soft); border: 1.5px solid transparent;
+  }
+  .dp-division-value:hover { border-color: var(--accent); }
+  .dp-division-value.empty {
+    background: transparent; border: 1.5px dashed var(--line); color: var(--fg-faint); font-weight: 500;
+  }
+  .dp-division-value.empty:hover { border-color: var(--fg-faint); color: var(--fg-soft); }
+  .dp-division-value input {
+    font: inherit; font-weight: 700; border: none; outline: none; background: transparent;
+    color: var(--accent); width: 140px;
+  }
   .dp-field { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); }
   .dp-field-name {
     flex: none; width: 92px; font-size: 12px; color: var(--fg-faint); cursor: text;
@@ -1265,11 +1280,12 @@ function renderDetailPanel() {
   $dpTitle.textContent = t.name;
   $dpBody.innerHTML = "";
 
+  $dpBody.appendChild(renderDetailDivision(m));
+
   const basics = document.createElement("div");
   basics.className = "dp-section-label";
   basics.textContent = "기본 정보";
   $dpBody.appendChild(basics);
-  $dpBody.appendChild(renderDetailDivision(m));
   $dpBody.appendChild(renderDetailBasic("상태", m.status || "대기"));
   $dpBody.appendChild(renderDetailBasic("마감일", m.deadline || "지정 안 함"));
   $dpBody.appendChild(renderDetailBasic("메모", m.memo || "없음"));
@@ -1294,20 +1310,20 @@ function renderDetailPanel() {
 }
 
 function renderDetailDivision(m) {
-  const row = document.createElement("div");
-  row.className = "dp-field";
-  const nameEl = document.createElement("div");
-  nameEl.className = "dp-field-name";
-  nameEl.textContent = "구분";
-  const valueEl = document.createElement("div");
-  valueEl.className = "dp-field-value" + (m.division ? "" : " empty");
-  valueEl.textContent = m.division || "예: 학교명 등…";
-  valueEl.onclick = () => editDivision(m, valueEl);
-  row.append(nameEl, valueEl);
-  return row;
+  const wrap = document.createElement("div");
+  wrap.className = "dp-division";
+  const val = document.createElement("span");
+  val.className = "dp-division-value" + (m.division ? "" : " empty");
+  val.textContent = m.division || "+ 구분 추가";
+  val.title = "클릭해서 구분을 입력하세요 (예: 학교명 등 원하는 분류)";
+  val.onclick = () => editDivision(m, val);
+  wrap.appendChild(val);
+  return wrap;
 }
 function editDivision(m, span) {
+  span.classList.remove("empty");
   const inp = document.createElement("input");
+  inp.placeholder = "구분 입력…";
   inp.value = m.division || "";
   span.textContent = "";
   span.appendChild(inp);
