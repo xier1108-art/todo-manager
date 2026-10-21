@@ -146,6 +146,7 @@
     white-space: nowrap; display: flex; align-items: center; gap: 5px;
   }
   button.tool:hover { background: var(--hover); color: var(--fg); }
+  button.tool.active { border-color: var(--accent); color: var(--accent); }
   #btnTheme { width: 32px; height: 30px; padding: 0; justify-content: center; }
   .gcal-panel {
     position: absolute; top: 36px; right: 0; z-index: 25; width: 240px;
@@ -314,6 +315,22 @@
     padding: 6px; border-radius: 6px;
   }
   .color-clear:hover { background: var(--hover2); color: var(--fg); }
+
+  /* 상태 배지 우클릭 메뉴 — 순서대로 넘기지 않고 원하는 상태를 바로 고른다 */
+  .status-popup {
+    position: fixed; z-index: 46; background: var(--bg-panel); border: 1px solid var(--line);
+    border-radius: 9px; box-shadow: 0 10px 30px rgba(0,0,0,.25); padding: 5px; min-width: 128px;
+  }
+  .status-popup.hidden { display: none; }
+  .status-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+    font-size: 12.5px; color: var(--fg); cursor: pointer;
+  }
+  .status-item:hover { background: var(--hover2); }
+  .status-item .status { pointer-events: none; }
+  .status-item .sp-check { margin-left: auto; color: var(--accent); font-size: 12px; visibility: hidden; }
+  .status-item.current .sp-check { visibility: visible; }
+
   .task.dragging { opacity: .35; }
   .task.drop-above > .trow::before,
   .task.drop-below > .trow::after {
@@ -426,6 +443,63 @@
   #loading {
     padding: 60px; text-align: center; color: var(--fg-faint); font-size: 14px;
   }
+
+  /* ── 오른쪽 메모 / 할일 패널 (접었다 펼 수 있음) ───────── */
+  #workArea { flex: 1 1 auto; min-height: 0; display: flex; }
+  #notePanel {
+    flex: none; width: 278px; display: flex; flex-direction: column; overflow: hidden;
+    border-left: 1px solid var(--line); background: var(--bg-panel);
+    transition: width .16s ease;
+  }
+  #notePanel.collapsed { width: 0; border-left: none; }
+  .np-head { flex: none; display: flex; align-items: center; gap: 3px; padding: 10px 10px 0 12px; }
+  .np-tab {
+    border: none; background: none; color: var(--fg-faint); cursor: pointer;
+    font-size: 12.5px; font-weight: 600; padding: 5px 9px; border-radius: 6px; white-space: nowrap;
+  }
+  .np-tab:hover { background: var(--hover2); color: var(--fg-soft); }
+  .np-tab.active { background: var(--hover2); color: var(--fg); }
+  .np-fold {
+    margin-left: auto; border: none; background: none; color: var(--fg-faint);
+    cursor: pointer; border-radius: 5px; padding: 4px; display: flex;
+  }
+  .np-fold:hover { background: var(--hover2); color: var(--fg); }
+  .np-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 10px 12px 12px; }
+  .np-body.hidden { display: none; }
+  #noteMemo {
+    flex: 1 1 auto; width: 100%; resize: none; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--bg); color: var(--fg);
+    padding: 9px 10px; font-size: 13px; line-height: 1.65; font-family: inherit;
+  }
+  #noteMemo:focus { outline: none; border-color: var(--accent); }
+  #noteTodoList { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 8px; }
+  .np-todo { display: flex; align-items: flex-start; gap: 7px; padding: 5px 3px; border-radius: 6px; }
+  .np-todo:hover { background: var(--hover); }
+  .np-check {
+    flex: none; width: 15px; height: 15px; margin-top: 2px; border: 1.6px solid var(--fg-faint);
+    border-radius: 4px; cursor: pointer; color: #fff; font-size: 10px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .np-todo.done .np-check { background: var(--accent); border-color: var(--accent); }
+  .np-todo-text { flex: 1; font-size: 12.8px; line-height: 1.5; cursor: text; word-break: break-word; }
+  .np-todo.done .np-todo-text { color: var(--fg-faint); text-decoration: line-through; }
+  .np-todo input {
+    width: 100%; border: 1px solid var(--accent); border-radius: 5px; background: var(--bg);
+    color: var(--fg); font-size: 12.8px; font-family: inherit; padding: 2px 5px;
+  }
+  .np-todo input:focus { outline: none; }
+  .np-del {
+    flex: none; opacity: 0; cursor: pointer; color: var(--fg-faint);
+    border-radius: 4px; padding: 1px 4px; font-size: 13px; line-height: 1.3;
+  }
+  .np-todo:hover .np-del { opacity: .65; }
+  .np-del:hover { opacity: 1; background: var(--s2-bg); color: var(--s2-fg); }
+  #noteTodoNew {
+    flex: none; width: 100%; border: 1px solid var(--line); border-radius: 7px;
+    background: var(--bg); color: var(--fg); padding: 7px 9px; font-size: 12.5px; font-family: inherit;
+  }
+  #noteTodoNew:focus { outline: none; border-color: var(--accent); }
+  .np-empty { font-size: 12px; color: var(--fg-faint); padding: 6px 3px; }
 
   /* ── 업무 상세 대시보드 (노션 스타일 사이드 패널) ─────── */
   .detail-panel {
@@ -552,6 +626,10 @@
     </div>
     <button class="tool" id="btnAddGroup" title="새 그룹 추가">＋ 그룹</button>
     <button class="tool" id="btnRefresh" title="폴더 다시 스캔">⟳ 새로고침</button>
+    <button class="tool" id="btnNotes" title="메모 / 할일 패널 접기·펼치기">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4h14v16l-4-3H5z"></path><path d="M9 9h6M9 13h4"></path></svg>
+      메모
+    </button>
     <div style="position:relative">
       <button class="tool" id="btnGCal" title="구글 캘린더 연동">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
@@ -608,13 +686,32 @@
   </div>
   <div id="summary"></div>
 </header>
+<div id="workArea">
 <main id="main"><div id="mainZoom"><div id="loading">폴더를 읽는 중…</div></div></main>
+<aside id="notePanel" class="collapsed">
+  <div class="np-head">
+    <button class="np-tab active" id="noteTabMemo" type="button">메모</button>
+    <button class="np-tab" id="noteTabTodo" type="button">할일</button>
+    <button class="np-fold" id="noteFoldBtn" type="button" title="패널 접기">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+    </button>
+  </div>
+  <div class="np-body" id="noteMemoView">
+    <textarea id="noteMemo" placeholder="자유롭게 메모하세요…&#10;입력하면 바로 저장돼요."></textarea>
+  </div>
+  <div class="np-body hidden" id="noteTodoView">
+    <div id="noteTodoList"></div>
+    <input id="noteTodoNew" type="text" placeholder="할 일 입력 후 Enter">
+  </div>
+</aside>
+</div>
 </div>
 <div id="toast"></div>
 <div id="colorPopup" class="color-popup hidden">
   <div class="color-grid" id="colorGrid"></div>
   <div class="color-clear" id="colorClearBtn">지우기</div>
 </div>
+<div id="statusPopup" class="status-popup hidden"></div>
 <div id="memoToolbar" class="memo-toolbar hidden">
   <div class="custom-select" id="memoFontDropdown">
     <button class="cs-btn" id="memoFontBtn" type="button">
@@ -671,11 +768,26 @@ let tasks = {};     // id -> {name, category, mtime, fileCount}
 let expanded = {};  // taskId -> true (파일 트리 펼침)
 let filter = "";
 let divisionFilter = "";
-let sortMode = localStorage.getItem("sortMode") || "custom";
+let sortMode = "custom"; // state 로드 후 settingsOf()로 실제 값 반영됨
 
 const $main = document.getElementById("main");
 const $mainZoom = document.getElementById("mainZoom");
 const api = () => window.pywebview.api;
+
+// UI 설정(테마/정렬/글꼴)은 브라우저 localStorage 대신 data.json에 저장한다.
+// pywebview가 localStorage를 유지하려면 창마다 같은 포트를 계속 써야 하는데,
+// 그러면 WebView2가 이전 실행의 페이지를 캐시해서 새로 고친 코드가 안 보이는
+// 문제가 있었음 — 이미 안정적으로 동작하는 data.json 쪽으로 옮겨서 회피한다.
+function settingsOf() {
+  if (!state.settings) state.settings = {};
+  return state.settings;
+}
+// 오른쪽 패널의 자유 메모와 할일 목록도 같은 data.json에 저장한다.
+function notesOf() {
+  if (!state.notes) state.notes = { memo: "", todos: [] };
+  if (!Array.isArray(state.notes.todos)) state.notes.todos = [];
+  return state.notes;
+}
 
 /* ── 테마 (라이트/다크/시스템) ─────────────── */
 const THEME_ICON = {
@@ -684,7 +796,7 @@ const THEME_ICON = {
   dark: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"></path></svg>',
 };
 function applyTheme() {
-  const pref = localStorage.getItem("themePref") || "system";
+  const pref = (state && settingsOf().themePref) || "system";
   const resolved = pref === "system"
     ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
     : pref;
@@ -695,14 +807,16 @@ function applyTheme() {
     + " (클릭해서 전환)";
 }
 document.getElementById("btnTheme").onclick = () => {
+  if (!state) return;
   const order = ["system", "light", "dark"];
-  const cur = localStorage.getItem("themePref") || "system";
+  const cur = settingsOf().themePref || "system";
   const next = order[(order.indexOf(cur) + 1) % order.length];
-  localStorage.setItem("themePref", next);
+  settingsOf().themePref = next;
+  save();
   applyTheme();
 };
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-  if ((localStorage.getItem("themePref") || "system") === "system") applyTheme();
+  if (state && (settingsOf().themePref || "system") === "system") applyTheme();
 });
 applyTheme();
 
@@ -779,7 +893,7 @@ function setSortSelected(mode) {
 setSortSelected(sortMode);
 setupDropdown("sortBtn", "sortMenu", value => {
   sortMode = value;
-  localStorage.setItem("sortMode", sortMode);
+  if (state) { settingsOf().sortMode = sortMode; save(); }
   setSortSelected(sortMode);
   render();
 });
@@ -817,7 +931,13 @@ async function load(showRemoved) {
   const res = await api().get_state();
   state = res.data;
   tasks = res.tasks;
+  if (!state.settings) state.settings = {};
+  sortMode = state.settings.sortMode || "custom";
+  setSortSelected(sortMode);
+  applyTheme();
+  applyFontSettings();
   refreshDivisionFilterMenu();
+  applyNotePanel();
   render();
   if (!res.rootExists) {
     toast("⚠ 할일 폴더를 찾을 수 없어요: " + state.root);
@@ -1022,11 +1142,16 @@ function renderTask(tid, g, sg) {
   const status = document.createElement("span");
   status.className = "status " + st.cls;
   status.textContent = st.key;
-  status.title = "클릭하면 상태가 바뀌어요 (대기→진행중→급함→완료)";
+  status.title = "클릭: 다음 상태로 (대기→진행중→급함→완료)\n우클릭: 원하는 상태 바로 고르기";
   status.onclick = () => {
     const i = STATUS.findIndex(s => s.key === m.status);
     m.status = STATUS[(i + 1) % STATUS.length].key;
     save(); render();
+  };
+  status.oncontextmenu = e => {
+    e.preventDefault();
+    e.stopPropagation();
+    openStatusPopup(tid, status);
   };
 
   let division = null;
@@ -1535,7 +1660,7 @@ function moveTask(tid, destGroup, destSub, index) {
   // 보이도록 사용자 지정 순서로 자동 전환한다 (안 그러면 바로 재정렬돼 원위치처럼 보임).
   if (sortMode !== "custom") {
     sortMode = "custom";
-    localStorage.setItem("sortMode", sortMode);
+    settingsOf().sortMode = sortMode;
     setSortSelected(sortMode);
   }
   save(); render();
@@ -1759,9 +1884,13 @@ function toast(msg) {
 
 /* ── 화면 설정 (글꼴 크기·서체) ─────────────── */
 function applyFontSettings() {
-  const scale = parseInt(localStorage.getItem("uiFontScale") || "100", 10);
-  const family = localStorage.getItem("uiFontFamily") || "";
+  const s = state ? settingsOf() : {};
+  const scale = parseInt(s.fontScale || 100, 10);
+  const family = s.fontFamily || "";
   $mainZoom.style.zoom = scale / 100;
+  // 오른쪽 메모 패널도 같은 배율로 키운다 (글자만 커지고 칸은 그대로면 답답해서).
+  // 이 함수는 패널 쪽 const가 선언되기 전에도 한 번 호출되므로 직접 찾아 쓴다.
+  document.getElementById("notePanel").style.zoom = scale / 100;
   if (family) document.documentElement.style.setProperty("--app-font-family", family);
   else document.documentElement.style.removeProperty("--app-font-family");
   document.querySelectorAll(".size-btn").forEach(b => {
@@ -1778,12 +1907,16 @@ function applyFontSettings() {
 }
 document.querySelectorAll(".size-btn").forEach(b => {
   b.onclick = () => {
-    localStorage.setItem("uiFontScale", b.dataset.scale);
+    if (!state) return;
+    settingsOf().fontScale = parseInt(b.dataset.scale, 10);
+    save();
     applyFontSettings();
   };
 });
 setupDropdown("fontBtn", "fontMenu", value => {
-  localStorage.setItem("uiFontFamily", value);
+  if (!state) return;
+  settingsOf().fontFamily = value;
+  save();
   applyFontSettings();
 });
 applyFontSettings();
@@ -1848,6 +1981,180 @@ document.addEventListener("click", e => {
     $colorPopup.classList.add("hidden");
   }
 });
+
+/* ── 상태 배지 우클릭 메뉴 ─────────────────────── */
+const $statusPopup = document.getElementById("statusPopup");
+function openStatusPopup(tid, anchorEl) {
+  const m = meta(tid);
+  $statusPopup.innerHTML = "";
+  STATUS.forEach(s => {
+    const item = document.createElement("div");
+    item.className = "status-item" + (s.key === (m.status || "대기") ? " current" : "");
+    const badge = document.createElement("span");
+    badge.className = "status " + s.cls;
+    badge.textContent = s.key;
+    const check = document.createElement("span");
+    check.className = "sp-check";
+    check.textContent = "✓";
+    item.append(badge, check);
+    item.onclick = () => {
+      m.status = s.key;
+      $statusPopup.classList.add("hidden");
+      save(); render();
+    };
+    $statusPopup.appendChild(item);
+  });
+
+  // 색상 팝업과 같은 방식으로 배지 위치를 기준으로 띄우되, 창 밖으로 나가면 접어 올린다.
+  $statusPopup.classList.remove("hidden");
+  const r = anchorEl.getBoundingClientRect();
+  const pw = $statusPopup.offsetWidth, ph = $statusPopup.offsetHeight;
+  let left = r.left, top = r.bottom + 4;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  if (top + ph > window.innerHeight - 8) top = r.top - ph - 4;
+  $statusPopup.style.left = Math.max(8, left) + "px";
+  $statusPopup.style.top = Math.max(8, top) + "px";
+}
+document.addEventListener("click", e => {
+  if (!$statusPopup.classList.contains("hidden") && !$statusPopup.contains(e.target)) {
+    $statusPopup.classList.add("hidden");
+  }
+});
+document.addEventListener("contextmenu", e => {
+  if (!$statusPopup.classList.contains("hidden") && !e.target.classList.contains("status")) {
+    $statusPopup.classList.add("hidden");
+  }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") $statusPopup.classList.add("hidden");
+});
+
+/* ── 오른쪽 메모 / 할일 패널 ───────────────────── */
+const $notePanel = document.getElementById("notePanel");
+const $noteMemo = document.getElementById("noteMemo");
+const $noteTodoList = document.getElementById("noteTodoList");
+const $noteTodoNew = document.getElementById("noteTodoNew");
+const $btnNotes = document.getElementById("btnNotes");
+let noteSaveTimer = null;
+
+// 메모는 한 글자 칠 때마다 파이썬을 호출하지 않고 조금 모아서 저장한다.
+function saveNotesSoon() {
+  clearTimeout(noteSaveTimer);
+  noteSaveTimer = setTimeout(save, 400);
+}
+function setNoteTabUI(tab) {
+  const memo = tab !== "todo";
+  document.getElementById("noteTabMemo").classList.toggle("active", memo);
+  document.getElementById("noteTabTodo").classList.toggle("active", !memo);
+  document.getElementById("noteMemoView").classList.toggle("hidden", !memo);
+  document.getElementById("noteTodoView").classList.toggle("hidden", memo);
+}
+function pickNoteTab(tab) {
+  setNoteTabUI(tab);
+  if (state) { settingsOf().noteTab = tab; save(); }
+}
+function setNotePanel(open) {
+  $notePanel.classList.toggle("collapsed", !open);
+  $btnNotes.classList.toggle("active", open);
+  if (state) { settingsOf().notesOpen = open; save(); }
+}
+// 데이터가 들어온 뒤 저장돼 있던 상태(열림 여부·탭·내용)를 화면에 반영한다.
+function applyNotePanel() {
+  const s = settingsOf();
+  $noteMemo.value = notesOf().memo || "";
+  renderTodos();
+  $notePanel.classList.toggle("collapsed", !s.notesOpen);
+  $btnNotes.classList.toggle("active", !!s.notesOpen);
+  setNoteTabUI(s.noteTab === "todo" ? "todo" : "memo");
+}
+
+function renderTodos() {
+  if (!state) return;
+  const todos = notesOf().todos;
+  $noteTodoList.innerHTML = "";
+  if (!todos.length) {
+    const empty = document.createElement("div");
+    empty.className = "np-empty";
+    empty.textContent = "아직 할 일이 없어요.";
+    $noteTodoList.appendChild(empty);
+    return;
+  }
+  todos.forEach(td => {
+    const row = document.createElement("div");
+    row.className = "np-todo" + (td.done ? " done" : "");
+
+    const check = document.createElement("span");
+    check.className = "np-check";
+    check.textContent = td.done ? "✓" : "";
+    check.title = td.done ? "완료 취소" : "완료 표시";
+    check.onclick = () => { td.done = !td.done; save(); renderTodos(); };
+
+    const text = document.createElement("span");
+    text.className = "np-todo-text";
+    text.textContent = td.text;
+    text.title = "클릭하면 고칠 수 있어요";
+    text.onclick = () => editTodo(td, text);
+
+    const del = document.createElement("span");
+    del.className = "np-del";
+    del.textContent = "×";
+    del.title = "삭제";
+    del.onclick = e => { e.stopPropagation(); removeTodo(td); };
+
+    row.append(check, text, del);
+    $noteTodoList.appendChild(row);
+  });
+}
+function removeTodo(td) {
+  const todos = notesOf().todos;
+  const i = todos.indexOf(td);
+  if (i >= 0) todos.splice(i, 1);
+  save(); renderTodos();
+}
+function editTodo(td, span) {
+  if (span.querySelector("input")) return;
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.value = td.text;
+  span.textContent = "";
+  span.appendChild(inp);
+  inp.focus();
+  inp.select();
+  inp.onblur = () => {
+    const v = inp.value.trim();
+    if (!v) { removeTodo(td); return; }   // 내용을 다 지우면 삭제
+    td.text = v;
+    save(); renderTodos();
+  };
+  inp.onkeydown = e => {
+    if (e.key === "Enter") { e.preventDefault(); inp.blur(); }
+    else if (e.key === "Escape") { inp.onblur = null; renderTodos(); }
+  };
+}
+
+$noteMemo.oninput = () => {
+  if (!state) return;
+  notesOf().memo = $noteMemo.value;
+  saveNotesSoon();
+};
+$noteMemo.onblur = () => {
+  if (!state) return;
+  clearTimeout(noteSaveTimer);
+  notesOf().memo = $noteMemo.value;
+  save();
+};
+$noteTodoNew.onkeydown = e => {
+  if (e.key !== "Enter" || !state) return;
+  const v = $noteTodoNew.value.trim();
+  if (!v) return;
+  notesOf().todos.push({ id: Date.now().toString(36), text: v, done: false });
+  $noteTodoNew.value = "";
+  save(); renderTodos();
+};
+$btnNotes.onclick = () => setNotePanel($notePanel.classList.contains("collapsed"));
+document.getElementById("noteFoldBtn").onclick = () => setNotePanel(false);
+document.getElementById("noteTabMemo").onclick = () => pickNoteTab("memo");
+document.getElementById("noteTabTodo").onclick = () => pickNoteTab("todo");
 
 /* ── 커스텀 타이틀바 (프레임 없는 창 제어) ─────── */
 document.getElementById("tbMin").onclick = () => api().minimize_window();

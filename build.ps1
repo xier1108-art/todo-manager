@@ -5,8 +5,7 @@
 # 콘솔 코드페이지 변환 과정에서 깨지는 경우가 있어, 영문 이름(TodoManager)으로 빌드한 뒤
 # 폴더/파일명을 한글로 바꾸는 방식을 씁니다.
 # 또한 PyInstaller는 dist\할일정리 폴더를 통째로 지웠다가 새로 만들기 때문에,
-# 안에 있던 data.json(그룹/상태/메모 등), token.json(구글 캘린더 로그인),
-# webview_data(글꼴 설정 등 localStorage가 담긴 브라우저 프로필)를
+# 안에 있던 data.json(그룹/상태/메모/설정 등)과 token.json(구글 캘린더 로그인)을
 # 빌드 전후로 자동 백업·복원합니다.
 
 Set-Location $PSScriptRoot
@@ -16,7 +15,6 @@ $buildName = "TodoManager"
 $distKorean = "dist\$koreanName"
 $distBuild = "dist\$buildName"
 $backupFiles = @("data.json", "token.json")
-$backupDirs = @("webview_data")
 $backupDir = Join-Path $env:TEMP "할일정리_backup"
 
 # 백업 폴더는 절대 통째로 지우지 않는다 (지난 빌드가 도중에 실패해 dist\할일정리 쪽
@@ -26,12 +24,6 @@ New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
 foreach ($f in $backupFiles) {
     if (Test-Path "$distKorean\$f") {
         Copy-Item "$distKorean\$f" (Join-Path $backupDir $f) -Force
-    }
-}
-foreach ($d in $backupDirs) {
-    if (Test-Path "$distKorean\$d") {
-        if (Test-Path (Join-Path $backupDir $d)) { Remove-Item (Join-Path $backupDir $d) -Recurse -Force }
-        Copy-Item "$distKorean\$d" (Join-Path $backupDir $d) -Recurse -Force
     }
 }
 
@@ -88,13 +80,6 @@ foreach ($f in $backupFiles) {
     if (Test-Path $src) {
         Copy-Item $src "$distKorean\$f" -Force
         Write-Host "기존 $f 를 복원했습니다."
-    }
-}
-foreach ($d in $backupDirs) {
-    $src = Join-Path $backupDir $d
-    if (Test-Path $src) {
-        Copy-Item $src "$distKorean\$d" -Recurse -Force
-        Write-Host "기존 $d 를 복원했습니다."
     }
 }
 

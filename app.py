@@ -331,11 +331,8 @@ if __name__ == "__main__":
         background_color=get_bg_color(),
     )
     window.events.closing += on_closing
-    webview.start(
-        setup_tray,
-        icon=str(ICON_FILE) if ICON_FILE.exists() else None,
-        # pywebview는 기본이 private_mode=True(시크릿 모드)라 localStorage(글꼴 설정 등)가
-        # 창을 닫으면 사라진다. 앱 폴더 옆에 프로필을 저장해 재시작해도 유지되게 한다.
-        private_mode=False,
-        storage_path=str(APP_DIR / "webview_data"),
-    )
+    # 글꼴/테마/정렬 설정은 브라우저 localStorage가 아니라 data.json에 저장한다
+    # (private_mode=False로 localStorage를 유지하려던 적이 있었는데, 그러면
+    # pywebview가 창마다 같은 포트를 재사용하게 되어 WebView2가 이전 실행의
+    # 페이지를 캐싱해 새로 고친 코드가 반영 안 되는 문제가 있었음).
+    webview.start(setup_tray, icon=str(ICON_FILE) if ICON_FILE.exists() else None)
