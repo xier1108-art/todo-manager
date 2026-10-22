@@ -447,11 +447,21 @@
   /* ── 오른쪽 메모 / 할일 패널 (접었다 펼 수 있음) ───────── */
   #workArea { flex: 1 1 auto; min-height: 0; display: flex; }
   #notePanel {
-    flex: none; width: 278px; display: flex; flex-direction: column; overflow: hidden;
+    position: relative; flex: none; width: var(--note-w, 278px);
+    display: flex; flex-direction: column; overflow: hidden;
     border-left: 1px solid var(--line); background: var(--bg-panel);
     transition: width .16s ease;
   }
   #notePanel.collapsed { width: 0; border-left: none; }
+  /* 끄는 동안에는 애니메이션이 따라오면서 버벅이므로 끈다 */
+  #notePanel.resizing { transition: none; }
+  /* 왼쪽 경계선을 잡고 끌어서 폭 조절 */
+  .np-resizer {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 6px; z-index: 2;
+    cursor: ew-resize;
+  }
+  .np-resizer:hover, #notePanel.resizing .np-resizer { background: var(--accent); opacity: .35; }
+  body.np-dragging { cursor: ew-resize; user-select: none; }
   .np-head { flex: none; display: flex; align-items: center; gap: 3px; padding: 10px 10px 0 12px; }
   .np-tab {
     border: none; background: none; color: var(--fg-faint); cursor: pointer;
@@ -689,6 +699,7 @@
 <div id="workArea">
 <main id="main"><div id="mainZoom"><div id="loading">폴더를 읽는 중…</div></div></main>
 <aside id="notePanel" class="collapsed">
+  <div class="np-resizer" id="noteResizer" title="끌어서 폭 조절 · 더블클릭하면 기본 폭"></div>
   <div class="np-head">
     <button class="np-tab active" id="noteTabMemo" type="button">메모</button>
     <button class="np-tab" id="noteTabTodo" type="button">할일</button>
@@ -2061,6 +2072,7 @@ function setNotePanel(open) {
 // 데이터가 들어온 뒤 저장돼 있던 상태(열림 여부·탭·내용)를 화면에 반영한다.
 function applyNotePanel() {
   const s = settingsOf();
+  setNoteWidth(s.noteWidth);
   $noteMemo.value = notesOf().memo || "";
   renderTodos();
   $notePanel.classList.toggle("collapsed", !s.notesOpen);
@@ -2151,6 +2163,41 @@ $noteTodoNew.onkeydown = e => {
   $noteTodoNew.value = "";
   save(); renderTodos();
 };
+/* 패널 폭 조절 — 접힘(width:0)이 인라인 폭에 덮이지 않도록 CSS 변수로 지정한다 */
+const NOTE_W_DEFAULT = 278, NOTE_W_MIN = 200;
+function setNoteWidth(w) {
+  if (w) $notePanel.style.setProperty("--note-w", w + "px");
+  else $notePanel.style.removeProperty("--note-w");
+}
+const $noteResizer = document.getElementById("noteResizer");
+$noteResizer.addEventListener("mousedown", e => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  // 패널에는 글자 크기 배율(zoom)이 걸려 있어서, 화면상 픽셀을 배율로 나눠야 실제 CSS 폭이 된다
+  const zoom = parseFloat($notePanel.style.zoom) || 1;
+  $notePanel.classList.add("resizing");
+  document.body.classList.add("np-dragging");
+  let w = $notePanel.getBoundingClientRect().width / zoom;
+  const onMove = ev => {
+    const max = (window.innerWidth * 0.65) / zoom;   // 업무 목록이 너무 좁아지지 않게
+    w = Math.round(Math.min(max, Math.max(NOTE_W_MIN, (window.innerWidth - ev.clientX) / zoom)));
+    setNoteWidth(w);
+  };
+  const onUp = () => {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+    $notePanel.classList.remove("resizing");
+    document.body.classList.remove("np-dragging");
+    if (state) { settingsOf().noteWidth = w; save(); }
+  };
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+});
+$noteResizer.addEventListener("dblclick", () => {
+  setNoteWidth(null);
+  if (state) { delete settingsOf().noteWidth; save(); }
+});
+
 $btnNotes.onclick = () => setNotePanel($notePanel.classList.contains("collapsed"));
 document.getElementById("noteFoldBtn").onclick = () => setNotePanel(false);
 document.getElementById("noteTabMemo").onclick = () => pickNoteTab("memo");
