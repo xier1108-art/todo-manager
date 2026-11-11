@@ -32,7 +32,9 @@ ICON_FILE = RES_DIR / "icon.ico"
 MIN_W, MIN_H = 760, 500
 TOKEN_FILE = APP_DIR / "token.json"
 
-user32 = ctypes.windll.user32
+# windll.user32는 pywebview와 공유되므로 여기에 argtypes를 걸면 pywebview의 창 이동
+# (크기 자리에 None을 넘김)이 깨진다. 이 앱 전용 인스턴스를 따로 만든다.
+user32 = ctypes.WinDLL("user32")
 user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND] + [ctypes.c_int] * 4 + [wintypes.UINT]
 user32.MonitorFromWindow.restype = wintypes.HANDLE
 
