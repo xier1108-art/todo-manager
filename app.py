@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -46,19 +47,39 @@ def get_bg_color():
         return "#0c0d0f"
 
 
+# 앱이 마지막으로 쓴 data.json의 수정 시각. 이것과 다르면 외부(자동화 등)에서 고친 것.
+_seen_mtime = None
+
+
+def _mtime():
+    try:
+        return DATA_FILE.stat().st_mtime_ns
+    except OSError:
+        return None
+
+
 def load_data():
-    if DATA_FILE.exists():
+    if not DATA_FILE.exists():
+        return {"root": DEFAULT_ROOT, "groups": [], "meta": {}}
+    # 외부 프로그램이 쓰는 도중이면 잠깐 깨진 내용이 읽힐 수 있어 몇 번 다시 시도한다.
+    for _ in range(10):
         try:
             with open(DATA_FILE, encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
-            pass
-    return {"root": DEFAULT_ROOT, "groups": [], "meta": {}}
+            time.sleep(0.2)
+    # 빈 데이터로 대신하면 이어지는 저장이 진짜 데이터를 덮어써 버리므로 여기서 멈춘다.
+    raise RuntimeError("data.json을 읽을 수 없습니다")
 
 
 def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
+    global _seen_mtime
+    # 임시 파일에 다 쓴 뒤 바꿔치기해서, 외부 프로그램이 반쯤 쓰인 파일을 읽지 않게 한다.
+    tmp = DATA_FILE.with_name(DATA_FILE.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, DATA_FILE)
+    _seen_mtime = _mtime()
 
 
 def scan_tasks(root):
@@ -140,13 +161,20 @@ class Api:
                 data["groups"].append(grp)
             grp["tasks"].append(tid)
 
+        # shortcut: 위에서 읽은 뒤 여기서 쓰기까지(수 ms) 사이의 외부 수정은 덮어써진다, 문제 되면 쓰기 직전 mtime 재확인
         save_data(data)
         return {"data": data, "tasks": tasks, "removed": removed,
                 "rootExists": Path(data["root"]).is_dir()}
 
     def save_state(self, data):
+        # 화면이 아직 모르는 외부 수정이 있으면 덮어쓰지 않는다 (화면 쪽이 새로 불러옴).
+        if _mtime() != _seen_mtime:
+            return {"conflict": True}
         save_data(data)
         return True
+
+    def data_changed(self):
+        return _mtime() != _seen_mtime
 
     def open_path(self, rel):
         p = Path(load_data()["root"]) / rel

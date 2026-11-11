@@ -957,8 +957,24 @@ async function load(showRemoved) {
   }
 }
 function save() {
-  api().save_state(state);
+  api().save_state(state).then(r => {
+    if (r && r.conflict) {
+      toast("다른 곳(자동화 등)에서 데이터가 바뀌어 새로 불러왔어요. 방금 바꾼 내용은 다시 입력해 주세요.");
+      reloadFromDisk();
+    }
+  });
 }
+async function reloadFromDisk() {
+  await load();
+  if (detailPanelTid) renderDetailPanel();
+}
+// 앱이 켜져 있어도 외부에서 data.json을 고치면 2초 안에 화면에 반영한다.
+setInterval(async () => {
+  if (!state) return;
+  const a = document.activeElement;
+  if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")) return;  // 입력 중에는 화면을 갈아엎지 않음
+  if (await api().data_changed()) reloadFromDisk();
+}, 2000);
 function meta(id) {
   if (!state.meta[id]) state.meta[id] = { memo: "", deadline: "", status: "대기" };
   return state.meta[id];
