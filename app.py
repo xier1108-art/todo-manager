@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """할일 정리 — ★할일★ 폴더를 노션처럼 그룹별 목록으로 보여주는 창 프로그램."""
+import ctypes
 import json
 import os
+from ctypes import wintypes
 import sys
 import time
 import uuid
@@ -29,6 +31,22 @@ DEFAULT_ROOT = r"G:\바탕화면\★할일★"
 ICON_FILE = RES_DIR / "icon.ico"
 MIN_W, MIN_H = 760, 500
 TOKEN_FILE = APP_DIR / "token.json"
+
+user32 = ctypes.windll.user32
+user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND] + [ctypes.c_int] * 4 + [wintypes.UINT]
+user32.MonitorFromWindow.restype = wintypes.HANDLE
+
+
+class MONITORINFO(ctypes.Structure):
+    _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT),
+                ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]
+
+
+# 64비트에서 핸들이 int로 잘리지 않도록 인자 타입을 지정한다.
+user32.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MONITORINFO)]
+
+
+_restore_rect = None  # 최대화 전 창 위치·크기 (물리 픽셀)
 
 
 def get_bg_color():
@@ -225,11 +243,23 @@ class Api:
     def hide_window(self):
         window.hide()
 
+    # 테두리 없는 창은 WinForms 기본 최대화가 작업표시줄까지 덮으므로,
+    # 창이 있는 모니터의 작업 영역(작업표시줄 제외)에 직접 맞춘다. 좌표는 모두 물리 픽셀.
     def maximize_window(self):
-        window.maximize()
+        global _restore_rect
+        hwnd = window.native.Handle.ToInt32()
+        r = wintypes.RECT()
+        user32.GetWindowRect(hwnd, ctypes.byref(r))
+        _restore_rect = (r.left, r.top, r.right - r.left, r.bottom - r.top)
+        mi = MONITORINFO()
+        mi.cbSize = ctypes.sizeof(MONITORINFO)
+        user32.GetMonitorInfoW(user32.MonitorFromWindow(hwnd, 2), ctypes.byref(mi))  # 2 = 가장 가까운 모니터
+        w = mi.rcWork
+        user32.SetWindowPos(hwnd, None, w.left, w.top, w.right - w.left, w.bottom - w.top, 0x0014)  # NOZORDER|NOACTIVATE
 
     def restore_window(self):
-        window.restore()
+        if _restore_rect:
+            user32.SetWindowPos(window.native.Handle.ToInt32(), None, *_restore_rect, 0x0014)
 
     def toggle_on_top(self):
         window.on_top = not window.on_top
