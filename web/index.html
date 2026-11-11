@@ -386,6 +386,15 @@
   }
   .memo.empty { color: var(--fg-faint); }
   .memo:hover { background: var(--hover2); }
+  /* 잘린 메모에 마우스를 올리면 뜨는 전체 내용 박스 */
+  .memo-tip {
+    position: fixed; z-index: 47; max-width: 420px; padding: 8px 11px;
+    background: var(--bg-panel); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.22);
+    font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+    pointer-events: none;
+  }
+  .memo-tip.hidden { display: none; }
   .memo input {
     width: 100%; font: inherit; font-style: normal; border: none; outline: none;
     background: var(--input-bg); border-radius: 5px; padding: 0 3px;
@@ -723,6 +732,7 @@
   <div class="color-clear" id="colorClearBtn">지우기</div>
 </div>
 <div id="statusPopup" class="status-popup hidden"></div>
+<div id="memoTip" class="memo-tip hidden"></div>
 <div id="memoToolbar" class="memo-toolbar hidden">
   <div class="custom-select" id="memoFontDropdown">
     <button class="cs-btn" id="memoFontBtn" type="button">
@@ -982,6 +992,7 @@ function meta(id) {
 
 /* ── 렌더링 ─────────────────────────────── */
 function render() {
+  hideMemoTip();   // 행을 새로 그리면 mouseleave가 안 와서 박스가 남으므로
   document.getElementById("rootPath").textContent = state.root;
   const total = Object.keys(tasks).length;
   const done = Object.values(state.meta).filter(m => m.status === "완료").length;
@@ -1201,7 +1212,9 @@ function renderTask(tid, g, sg) {
   memo.className = "memo" + (m.memo ? "" : " empty");
   memo.textContent = m.memo || "메모 추가…";
   applyMemoStyle(memo, memoStyleOf(m));
-  memo.onclick = () => editMemo(m, memo);
+  memo.onclick = () => { hideMemoTip(); editMemo(m, memo); };
+  memo.onmouseenter = () => showMemoTip(memo, m.memo);
+  memo.onmouseleave = hideMemoTip;
 
   const panelBtn = document.createElement("span");
   panelBtn.className = "tpanel";
@@ -2008,6 +2021,31 @@ document.addEventListener("click", e => {
     $colorPopup.classList.add("hidden");
   }
 });
+
+/* ── 잘린 메모 전체 보기 박스 ─────────────────── */
+const $memoTip = document.getElementById("memoTip");
+let memoTipTimer = null;
+function showMemoTip(span, text) {
+  clearTimeout(memoTipTimer);
+  // 다 보이는 메모나 편집 중인 메모에는 띄우지 않는다
+  if (!text || span.querySelector("input") || span.scrollWidth <= span.clientWidth) return;
+  memoTipTimer = setTimeout(() => {   // 마우스가 스쳐 지나갈 때 깜빡이지 않게 잠깐 기다린다
+    $memoTip.textContent = text;
+    $memoTip.classList.remove("hidden");
+    const r = span.getBoundingClientRect();
+    const tw = $memoTip.offsetWidth, th = $memoTip.offsetHeight;
+    let left = Math.min(r.left, window.innerWidth - tw - 8);
+    let top = r.bottom + 6;
+    if (top + th > window.innerHeight - 8) top = r.top - th - 6;   // 아래 공간 없으면 위로
+    $memoTip.style.left = Math.max(8, left) + "px";
+    $memoTip.style.top = Math.max(8, top) + "px";
+  }, 250);
+}
+function hideMemoTip() {
+  clearTimeout(memoTipTimer);
+  $memoTip.classList.add("hidden");
+}
+document.getElementById("main").addEventListener("scroll", hideMemoTip);
 
 /* ── 상태 배지 우클릭 메뉴 ─────────────────────── */
 const $statusPopup = document.getElementById("statusPopup");
