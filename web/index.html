@@ -949,7 +949,17 @@ setupDropdown("divisionFilterBtn", "divisionFilterMenu", value => {
 
 /* ── 데이터 로드/저장 ─────────────────────── */
 async function load(showRemoved) {
-  const res = await api().get_state();
+  let res;
+  try {
+    res = await api().get_state();
+  } catch (e) {
+    // 실패를 삼키면 "폴더를 읽는 중…"에서 영원히 멈춘 것처럼 보이므로 이유를 보여준다
+    const msg = "데이터를 불러오지 못했어요: " + (e && e.message || e);
+    const $loading = document.getElementById("loading");
+    if ($loading) $loading.textContent = msg + " (잠시 후 ⟳ 새로고침)";
+    toast(msg);
+    return;
+  }
   state = res.data;
   tasks = res.tasks;
   if (!state.settings) state.settings = {};
@@ -972,7 +982,7 @@ function save() {
       toast("다른 곳(자동화 등)에서 데이터가 바뀌어 새로 불러왔어요. 방금 바꾼 내용은 다시 입력해 주세요.");
       reloadFromDisk();
     }
-  });
+  }).catch(e => toast("⚠ 저장하지 못했어요: " + (e && e.message || e)));
 }
 async function reloadFromDisk() {
   await load();

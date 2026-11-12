@@ -80,7 +80,11 @@ def _mtime():
 
 def load_data():
     if not DATA_FILE.exists():
-        return {"root": DEFAULT_ROOT, "groups": [], "meta": {}}
+        # 빌드 등이 도중에 멈춰 data.json이 사라졌을 때 대비해 둔 백업이 있으면 되살린다 (한 번 쓰고 없어짐).
+        bak = DATA_FILE.with_name(DATA_FILE.name + ".bak")
+        if not bak.exists():
+            return {"root": DEFAULT_ROOT, "groups": [], "meta": {}}
+        os.replace(bak, DATA_FILE)
     # 외부 프로그램이 쓰는 도중이면 잠깐 깨진 내용이 읽힐 수 있어 몇 번 다시 시도한다.
     for _ in range(10):
         try:
@@ -98,7 +102,18 @@ def save_data(data):
     tmp = DATA_FILE.with_name(DATA_FILE.name + ".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, DATA_FILE)
+    for _ in range(3):
+        try:
+            os.replace(tmp, DATA_FILE)
+            break
+        except PermissionError:
+            time.sleep(0.05)
+    else:
+        # 다른 프로그램(Claude 자동화 등)이 data.json을 열어 두고 있으면 윈도우가 바꿔치기를
+        # 거부한다(WinError 5). 이때는 제자리 덮어쓰기로 저장한다 — 이건 열려 있어도 된다.
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        tmp.unlink(missing_ok=True)
     _seen_mtime = _mtime()
 
 
