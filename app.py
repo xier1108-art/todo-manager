@@ -257,7 +257,7 @@ class Api:
         window.minimize()
 
     def hide_window(self):
-        window.hide()
+        hide_to_tray()
 
     # 테두리 없는 창은 WinForms 기본 최대화가 작업표시줄까지 덮으므로,
     # 창이 있는 모니터의 작업 영역(작업표시줄 제외)에 직접 맞춘다. 좌표는 모두 물리 픽셀.
@@ -364,7 +364,34 @@ def make_tray_icon():
     return im
 
 
+def _set_webview_sleep(sleep):
+    """트레이에 숨어 있는 동안 화면 엔진(WebView2)을 메모리 절약 모드로 두고 일시정지한다."""
+    try:
+        from System import Action
+        from Microsoft.Web.WebView2.Core import CoreWebView2MemoryUsageTargetLevel as Level
+
+        def apply():
+            core = window.native.webview.CoreWebView2
+            if sleep:
+                core.MemoryUsageTargetLevel = Level.Low
+                core.TrySuspendAsync()   # 창이 안 보일 때만 성공한다 (그래서 숨긴 뒤에 부름)
+            else:
+                core.Resume()
+                core.MemoryUsageTargetLevel = Level.Normal
+
+        window.native.Invoke(Action(apply))   # WebView2는 UI 스레드에서만 만질 수 있다
+    except Exception as e:
+        # 절약은 덤이라, 실패해도 창 숨기기/보이기는 그대로 되게 한다
+        print("WebView2 절전 전환 실패:", e)
+
+
+def hide_to_tray():
+    window.hide()
+    _set_webview_sleep(True)
+
+
 def show_window():
+    _set_webview_sleep(False)
     window.show()
     window.restore()
 
@@ -392,7 +419,7 @@ def on_closing():
     # 트레이 메뉴의 "완전 종료"가 아닌 이상(Alt+F4 등) 실제로 닫지 않고 트레이로 숨긴다.
     if _quitting:
         return
-    window.hide()
+    hide_to_tray()
     return False
 
 
