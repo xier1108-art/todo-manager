@@ -15,7 +15,6 @@ from webview.window import FixPoint
 import pystray
 from PIL import Image
 
-import gcal
 
 # exe로 빌드된 경우 실행 파일이 있는 폴더에 데이터를 저장하고,
 # 번들된 리소스(web/index.html)는 PyInstaller가 풀어놓은 임시 위치(_MEIPASS)에서 읽는다.
@@ -292,9 +291,11 @@ class Api:
 
     # ── 구글 캘린더 연동 (중계 서버를 통해 클라이언트 시크릿 없이 로그인) ──
     def gcal_status(self):
+        import gcal  # 캘린더를 쓸 때만 불러와 메모리 약 12MB 절약
         return {"connected": gcal.is_connected(TOKEN_FILE)}
 
     def gcal_connect(self):
+        import gcal  # 캘린더를 쓸 때만 불러와 메모리 약 12MB 절약
         try:
             gcal.connect(TOKEN_FILE)  # 브라우저 로그인 진행
             return {"ok": True}
@@ -304,10 +305,12 @@ class Api:
             return {"error": f"연결에 실패했습니다: {e}"}
 
     def gcal_disconnect(self):
+        import gcal  # 캘린더를 쓸 때만 불러와 메모리 약 12MB 절약
         gcal.disconnect(TOKEN_FILE)
         return {"ok": True}
 
     def gcal_list_calendars(self):
+        import gcal  # 캘린더를 쓸 때만 불러와 메모리 약 12MB 절약
         try:
             return {"calendars": gcal.list_calendars(TOKEN_FILE)}
         except gcal.GCalError as e:
@@ -317,6 +320,7 @@ class Api:
 
     def gcal_sync_deadline(self, task_id, task_name, deadline, calendar_id):
         """마감일이 바뀔 때마다 호출되어 종일 일정을 등록/수정/삭제한다."""
+        import gcal  # 캘린더를 쓸 때만 불러와 메모리 약 12MB 절약
         if not calendar_id:
             return {"skipped": True}
 
@@ -406,6 +410,12 @@ if __name__ == "__main__":
         background_color=get_bg_color(),
     )
     window.events.closing += on_closing
+    # 목록·글자 위주 화면이라 GPU 가속이 필요 없다. 끄면 WebView2 GPU 프로세스가 약 90MB 줄어든다.
+    # 이 환경 변수는 pywebview가 넣는 브라우저 인자를 대신하므로 그 인자들도 함께 적는다.
+    os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = (
+        "--disable-features=ElasticOverscroll --disable-gpu"
+        + (" --allow-file-access-from-files" if webview.settings["ALLOW_FILE_URLS"] else "")
+    )
     # 글꼴/테마/정렬 설정은 브라우저 localStorage가 아니라 data.json에 저장한다
     # (private_mode=False로 localStorage를 유지하려던 적이 있었는데, 그러면
     # pywebview가 창마다 같은 포트를 재사용하게 되어 WebView2가 이전 실행의
